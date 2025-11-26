@@ -1,0 +1,24 @@
+{
+  "$schema": "../../umbraco-package-schema.json",
+  "name": "Webinar Import Dashboard",
+  "version": "1.0.0",
+  "extensions": [
+    {
+      "type": "dashboard",
+      "alias": "webinarImport.dashboard",
+      "name": "Webinar Import Dashboard",
+      "element": "/App_Plugins/WebinarImport/webinar-dashboard-element.js",
+      "weight": 10,
+      "meta": {
+        "label": "Webinar Import",
+        "pathname": "webinar-import"
+      },
+      "conditions": [
+        {
+          "alias": "Umb.Condition.SectionAlias",
+          "match": "Umb.Section.Content"
+        }
+      ]
+    }
+  ]
+}

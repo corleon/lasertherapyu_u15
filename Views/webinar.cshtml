@@ -1,0 +1,112 @@
+﻿@using Umbraco.Extensions
+@using Umbraco.Cms.Core.Models.PublishedContent
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+
+@{
+    Layout = "master.cshtml";
+
+    // ---- Data from the veterinaryWebinar doctype ----
+    var pageTitle = Model?.Value<string>("pageTitle")?.Trim();
+    var title = (Model?.Value<string>("title")?.Trim() ?? pageTitle ?? "");
+
+    var descriptionHtml = Model?.Value<string>("description") ?? "";
+    var videoEmbed = Model?.Value<string>("videoEmbedCode") ?? "";
+    var length = (Model?.Value<string>("length") ?? "").Trim();
+    var date = Model?.Value<System.DateTime?>("date");
+    string dateFormatted = date.HasValue ? date.Value.ToString("M/d/yyyy") : "";
+
+    // Ancestor breadcrumbs (Home > ... > Parent)
+    var crumbs = Model?.AncestorsOrSelf()?.OrderBy(x => x.Level).ToList() ?? new List<IPublishedContent>();
+
+    // Related webinars (siblings under the same Webinar List). You can tweak the algorithm later.
+    var related = Model?.Siblings()?
+        .Where(x => x.IsPublished()
+            && (x.ContentType.Alias == "veterinaryWebinar" || x.ContentType.Alias == "webinar")
+            && x.Value<bool?>("active") != false
+        )
+        .OrderByDescending(x => x.Value<System.DateTime?>("date") ?? System.DateTime.MinValue)
+        .Take(3)
+        .ToList() ?? new List<IPublishedContent>();
+
+    string Summary(IPublishedContent c, int max = 180)
+    {
+        var html = c?.Value<string>("description") ?? "";
+        var text = html.StripHtml().Trim();
+        return text.Length <= max ? text : text.Substring(0, max).TrimEnd() + "…";
+    }
+}
+
+<div class="content-wrapper content-webinars content-has-breadcrumb" data-variant="768">
+
+    <nav class="breadcrumb-nav">
+        @if (crumbs?.Any() == true)
+        {
+            foreach (var c in crumbs)
+            {
+                if (c.Id == Model.Id) { continue; }
+                <a title="@c.Name" href="@c.Url()">@c.Name</a>
+            }
+        }
+    </nav>
+
+    <header class="content-header">
+        <h1 class="content-title content-title-h1">@title</h1>
+    </header>
+
+    <section class="content-body">
+
+        @* ---- Video ---- *@
+        @if (!string.IsNullOrWhiteSpace(videoEmbed))
+        {
+            <div class="content-video-player">
+                @Html.Raw(videoEmbed)
+            </div>
+        }
+
+        @* ---- Meta (length & date) ---- *@
+        @if (!string.IsNullOrWhiteSpace(length) || !string.IsNullOrWhiteSpace(dateFormatted))
+        {
+            <dl class="listing-item-date">
+                @if (!string.IsNullOrWhiteSpace(length))
+                {
+                    <dt>Length:</dt>
+                    <dd>@length</dd>
+                }
+                @if (!string.IsNullOrWhiteSpace(dateFormatted))
+                {
+                    <dt>Original Webinar Date:</dt>
+                    <dd>@dateFormatted</dd>
+                }
+            </dl>
+        }
+
+        @* ---- Description ---- *@
+        @if (!string.IsNullOrWhiteSpace(descriptionHtml))
+        {
+            <article class="content-article">
+                @Html.Raw(descriptionHtml)
+            </article>
+        }
+    </section>
+
+    @* ---- Related Webinars (simple "more like this" by recency) ---- *@
+    @if (related.Any())
+    {
+        <section class="related-products">
+            <h2 class="related-products-h2">More Webinars</h2>
+
+            <div class="related-products-grid">
+                @foreach (var w in related)
+                {
+                    var wTitle = w.Value<string>("title");
+                    if (string.IsNullOrWhiteSpace(wTitle)) wTitle = w.Name;
+                    <div class="related-products-item">
+                        <h3 class="related-products-h3">@wTitle</h3>
+                        <div class="related-products-description">@Summary(w)</div>
+                        <a class="btn btn-green btn-218" href="@w.Url()">View Webinar</a>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+</div>

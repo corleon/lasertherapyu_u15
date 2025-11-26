@@ -1,0 +1,69 @@
+.ghost { display:none !important}
+
+
+.pagination ul{list-style: none; }
+.pagination ul li{display: inline; }
+
+.sectionToggles{list-style: none; }
+.sectionToggles li{display: inline; }
+.sectionToggles a{text-decoration: underline; color:#545654; margin-right: 5%; }
+.sectionToggles li:last-child a{margin-right:0; }
+.sectionToggles a:hover{text-decoration:none; }
+.sectionToggles a.active{color:#0c5c97; }
+
+li.footer.form-item{/*display: none;*/ padding:1% 0 0 30%; }
+/*li.footer > .primaryBtn,*/
+ul.primary li.footer > .primaryBtn{visibility:hidden; }
+
+ul.noAddBtn > li.footer > .addMore{visibility:hidden; }
+ul.bottomList li.footer > .addMore{display:inline-block; }
+ul.deleted > li.footer > .primaryBtn{visibility: hidden; }
+
+ul.form > li.footer a{text-decoration: underline; display: inline-block; width:25%; text-align: center; color:#0065a1; font-size: 0.75em; }
+ul.form > li.footer a:hover{text-decoration: none; }
+ul.form.deleted > li.footer .deleteBtn{display:none; }
+.saveVal{display: inline-block; margin-top: 5px; }
+.saveVal + input,
+.saveVal + .selectFix{display: none; }
+.region{width:44%; margin-right:3.5%; float:left; padding:2%; overflow:hidden; }
+
+.region h4{/*margin-left:36.5%;*/ font-family: 'Kameron'; font-size: 1.125em; }
+
+#add-billing-address, #add-shipping-address {
+  border-bottom: 1px solid #CCCCCC;
+  color: #0065A1;
+  display: block;
+  font-size: 0.75em;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+}
+
+
+.region:nth-child(even){margin-right: 0; }
+/*.region .form{margin-bottom:0; }*/        
+.form-column{width:100%; }
+.form-checkbox{margin-left:0; }
+li.form-item > .form-buttons{margin-left:24%; }
+
+/*-- ul.controls{border:1px solid #b8b7bc; padding:5%; } --*/
+li.form-item > .form-buttons{width:100%; margin:0; }
+.controls input.btn{display: block; margin:0 auto; float:none; }
+
+.form-submit-loader-image{display: none; }
+.cancelBtn{display: block; clear:both; width:55px; text-align:center; margin:0 auto; text-transform: uppercase; color:#0065a1; font-size: 0.75em; }
+
+.myProfile .panel{display: none; }
+.myProfile .myInfo.panel{display: block; }
+
+.showOnEdit{display: none; }
+.showOnEdit.show{display: block; }
+
+
+
+@media screen and (max-width:1043px) {
+    .region{width:43.9%; }
+}
+
+@media screen and (max-width:608px) {
+    .region{width:95%; float:none; margin-bottom: 20px; }
+}
