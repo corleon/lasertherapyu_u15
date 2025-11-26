@@ -4,7 +4,8 @@
 @using Umbraco.Cms.Core.Models.PublishedContent
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 @{
-	Layout = "master.cshtml";
+
+    Layout = "master.cshtml";
 
     // --- Query + paging config ---
     const int pageSize = 12; // change if you want fewer/more per page
@@ -35,12 +36,12 @@
     string DisplayLength(IPublishedContent c)
         => (c.Value<string>("length") ?? "").Trim();
 
-    // Простой helper: убираем HTML тэги Regex’ом, чтобы не тянуть Umbraco.Web.*
-    string Summary(IPublishedContent c, int max = 320)
+    string Summary(IPublishedContent c)
     {
-        var html = c.Value<string>("description") ?? "";
-        var text = Regex.Replace(html, "<.*?>", string.Empty).Trim();
-        return text.Length <= max ? text : text.Substring(0, max).TrimEnd() + "…";
+        var html = c?.Value<string>("description") ?? "";
+        var text = html.Trim();
+
+        return text;@* Length <= max ? text : text.Substring(0, max).TrimEnd() + "…";*@
     }
 }
 
@@ -1491,9 +1492,7 @@
                     <h2 class="listing-item-h2">@((string.IsNullOrWhiteSpace(title) ? w.Name : title))</h2>
 
                     <div class="listing-item-description">
-                        @* Если надо кратко — Summary(w); если нужен полный HTML — Raw *@
                         @Html.Raw(Summary(w) ?? "")
-                        @* или замените строкой: @Summary(w) *@
                     </div>
 
                     <dl class="listing-item-date">

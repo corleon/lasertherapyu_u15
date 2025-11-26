@@ -3,6 +3,9 @@
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 
 @{
+
+
+
     Layout = "master.cshtml";
 
     // ---- Data from the veterinaryWebinar doctype ----
@@ -28,11 +31,12 @@
         .Take(3)
         .ToList() ?? new List<IPublishedContent>();
 
-    string Summary(IPublishedContent c, int max = 180)
+    string Summary(IPublishedContent c)
     {
         var html = c?.Value<string>("description") ?? "";
         var text = html.StripHtml().Trim();
-        return text.Length <= max ? text : text.Substring(0, max).TrimEnd() + "…";
+
+        return text;@* Length <= max ? text : text.Substring(0, max).TrimEnd() + "…";*@
     }
 }
 
@@ -49,8 +53,11 @@
         }
     </nav>
 
-    <header class="content-header">
-        <h1 class="content-title content-title-h1">@title</h1>
+    <header class="content-header content-header-has-icon">
+        <div class="content-header-icon">
+            <img src="/images/icon_webinars.png?h=109&amp;la=en&amp;w=145" alt="Webinars" width="145" height="109">
+        </div>
+        <h1 class="content-header-h1">@title</h1>
     </header>
 
     <section class="content-body">
