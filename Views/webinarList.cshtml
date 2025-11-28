@@ -1488,6 +1488,10 @@
             foreach (var w in paged)
             {
                 var title = w.Value<string>("title")?.Trim();
+                
+                // Get the tags from the Content Picker property
+                var tagNodes = w.Value<IEnumerable<IPublishedContent>>("tags");
+                
                 <div class="listing-item">
                     <h2 class="listing-item-h2">@((string.IsNullOrWhiteSpace(title) ? w.Name : title))</h2>
 
@@ -1502,6 +1506,71 @@
                         <dd>@DisplayDate(w)</dd>
                     </dl>
 
+                    <dl class="listing-item-price">
+                        <dt>Price:</dt>
+                        <dd>29.95</dd>
+                    </dl>
+
+                    @if (tagNodes != null && tagNodes.Any())
+                    {
+                        // Group tags by their parent category KEY (not object reference)
+                        var tagsByCategory = tagNodes
+                            .Where(tag => tag != null && tag.Parent != null)
+                            .GroupBy(tag => tag.Parent.Key)
+                            .Select(g => new {
+                                CategoryKey = g.Key,
+                                Category = g.First().Parent, // Get the actual parent node
+                                Tags = g.OrderBy(t => t.SortOrder).ToList()
+                            })
+                            // Sort by the category's full path in Umbraco (preserves hierarchy order)
+                        .OrderBy(g => g.Category?.Parent?.SortOrder ?? 0)  // Section order
+                        .ThenBy(g => g.Category?.SortOrder ?? 0)            // Category order
+                        .ToList();
+
+                        <div class="tags">
+                            <div class="tagHead">
+                                Tags:
+                            </div>
+                            <div class="theTags">
+                                @{
+                                    var isFirst = true;
+                                    foreach (var categoryGroup in tagsByCategory)
+                                    {
+                                        var category = categoryGroup.Category;
+                                        var tagsInCategory = categoryGroup.Tags;
+
+                                        // Add comma separator between categories
+                                        if (!isFirst)
+                                        {
+                                            @:, 
+                                        }
+                                        isFirst = false;
+
+                                        // Display category title as span with class="typeTag"
+                                        var categoryTitle = category?.Value<string>("categoryTitle") ?? category?.Name ?? "";
+                                        <span class="typeTag">@categoryTitle</span>
+                                        @:, 
+
+                                        // Display all tags in this category, comma-separated
+                                        var tagCount = tagsInCategory.Count;
+                                        for (int i = 0; i < tagCount; i++)
+                                        {
+                                            var tag = tagsInCategory[i];
+                                            var tagName = tag.Value<string>("tagName") ?? tag.Name;
+                                            
+                                            @tagName
+                                            
+                                            if (i < tagCount - 1)
+                                            {
+                                                @:, 
+                                            }
+                                        }
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+
                     <ul class="listing-item-btns">
                         <li class="listing-item-btn">
                             <a class="btn btn-green btn-218" href="@w.Url()">Learn More</a>
@@ -1510,6 +1579,7 @@
                 </div>
             }
         }
+        
         
 
     </section>
