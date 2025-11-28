@@ -8,11 +8,8 @@
     Layout = "master.cshtml";
 
     // --- Query + paging config ---
-    const int pageSize = 12; // change if you want fewer/more per page
-    var pageQuery = Context?.Request?.Query["page"].ToString();
-    var currentPage = 1;
-    int.TryParse(pageQuery, out currentPage);
-    if (currentPage < 1) currentPage = 1;
+    // For filtering to work, we need to show all webinars (filtered client-side)
+    // Pagination will be handled by JavaScript after filtering
 
     // Pick up children of this "Webinar List" page that are either 'veterinaryWebinar' or 'webinar'
     var allWebinars = Model!.Children()
@@ -25,10 +22,7 @@
         .ToList();
 
     var total = allWebinars.Count;
-    var totalPages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
-    if (currentPage > totalPages) currentPage = totalPages;
-
-    var paged = allWebinars.Skip((currentPage - 1) * pageSize).Take(pageSize).ToList();
+    // Display all webinars (filtering handled client-side)
 
     string DisplayDate(IPublishedContent c)
         => c.Value<DateTime?>("date")?.ToString("MM/dd/yyyy") ?? "";
@@ -43,6 +37,87 @@
 
         return text;@* Length <= max ? text : text.Substring(0, max).TrimEnd() + "…";*@
     }
+
+    // ============================================================================
+    // DYNAMIC FILTER SYSTEM
+    // ============================================================================
+    
+    // Find the Filters root node
+    var filtersRoot = Umbraco.ContentAtRoot()
+        .DescendantsOrSelfOfType("filterRoot")
+        .FirstOrDefault();
+
+    // Collect all tag Keys used in current webinars
+    var usedTagKeys = new HashSet<Guid>();
+    foreach (var webinar in allWebinars)
+    {
+        var tags = webinar.Value<IEnumerable<IPublishedContent>>("tags");
+        if (tags != null)
+        {
+            foreach (var tag in tags.Where(t => t != null))
+            {
+                usedTagKeys.Add(tag.Key);
+            }
+        }
+    }
+
+    // Build filter structure
+    var filterSections = new List<dynamic>();
+    if (filtersRoot != null)
+    {
+        // Get sections (children of Filters root)
+        var sections = filtersRoot.Children()
+            .Where(s => s.ContentType.Alias == "filterSection" && s.IsPublished())
+            .OrderBy(s => s.SortOrder)
+            .ToList();
+
+        foreach (var section in sections)
+        {
+            var categories = new List<dynamic>();
+            
+            // Get categories within this section
+            var sectionCategories = section.Children()
+                .Where(c => c.ContentType.Alias == "filterCategory" && c.IsPublished())
+                .OrderBy(c => c.SortOrder)
+                .ToList();
+
+            foreach (var category in sectionCategories)
+            {
+                // Get tags within this category
+                var categoryTags = category.Children()
+                    .Where(t => t.ContentType.Alias == "filterTag" && t.IsPublished())
+                    .OrderBy(t => t.SortOrder)
+                    .Select(t => new {
+                        Key = t.Key,
+                        Name = t.Value<string>("tagName") ?? t.Name,
+                        Alias = t.GetProperty("tagKey")?.GetValue() as string ?? t.Name.ToLower().Replace(" ", "-"),
+                        IsUsed = usedTagKeys.Contains(t.Key)
+                    })
+                    .ToList();
+
+                // Only include category if it has tags
+                if (categoryTags.Any())
+                {
+                    categories.Add(new {
+                        Key = category.Key,
+                        Title = category.Value<string>("categoryTitle") ?? category.Name,
+                        Tags = categoryTags,
+                        HasUsedTags = categoryTags.Any(t => t.IsUsed)
+                    });
+                }
+            }
+
+            // Only include section if it has categories with tags
+            if (categories.Any())
+            {
+                filterSections.Add(new {
+                    Key = section.Key,
+                    Title = section.Value<string>("sectionTitle") ?? section.Name,
+                    Categories = categories
+                });
+            }
+        }
+    }
 }
 
 <div class="filterWrap" id="filter-wrap">
@@ -51,1400 +126,79 @@
 
     <div class="searchTopBanner">
         <div class="inner">
-            <h2>
-                Advanced Search
-            </h2>
-            <span class="totalResults">10</span>
-            <h3>
-                Results:
-            </h3>
+            <h2>Advanced Search</h2>
+            <span class="totalResults">@total</span>
+            <h3>Results:</h3>
             <div class="filterReset">
-                <a title="Reset Filter">Reset Filter</a>
+                <a href="#" title="Reset Filter" id="resetFilter">Reset Filter</a>
             </div>
-        </div><!--inner-->
-    </div><!--searchTopBanner-->
+        </div>
+    </div>
 
     <div class="instructions">
         <p>Click on the <img src="/images/smallPlus.jpg" alt="">below to filter your results. Once done, scroll down to view.</p>
-    </div><!--instructions-->
-
-
+    </div>
 
     <div class="accordionWrap">
-
-
-        <div id="content_0_controls_0_lvFilterSection_pnlSection_0" class="accordionPanel" data-id="4bd289059eca40cba8dc6b5d58f6e867">
-
-            <div class="accordionHeader">
-                <div class="accordionToggle">
-                    <img src="/images/accordionToggle_Plus.jpg" alt="Accordion Toggle">
+        @foreach (var filterSection in filterSections)
+        {
+            <div class="accordionPanel"
+                 data-id="@filterSection.Key">
+                <div class="accordionHeader">
+                    <div class="accordionToggle">
+                        <img src="/images/accordionToggle_Plus.jpg" alt="Accordion Toggle">
+                    </div>
+                    <div class="accordionTitle">
+                        @filterSection.Title
+                    </div>
                 </div>
-                <div class="accordionTitle">
-                    Diagnostics/Condition Criteria
-                </div>
-            </div>
-            <div class="accordionContent" style="display: none;">
-
-
-                <div class="filterRow">
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_pnlCategory_0" class="filterType" data-id="5bb3ffc586a3470a90bfcc50c92cfd87">
-
-                        <h3>Diagnosis or Condition</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="35bab1bc225a42c7b6c6c612ecd3d5f8"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_0">Achilles</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="d261c96fb5824eb7af9d487148472c69"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_1">Acne Vulgaris</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="8f7e0419fb3246eebebbc2e99f04c441"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl2$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_2">Alzheimers</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="2ebb3f26858a4a3281e9d8c8fea68bc6"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl3$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_3">Antimicrobial Effects</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="8bcac3ecae024fc0b110e679e8b50d29"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_4" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl4$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_4">Arthritis</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="31f849a175b14e0bb60c13ec8655c125"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_5" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl5$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_5">Back Pain</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="171623cbeed14f17b2db7c2a9d3876b3"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_6" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl6$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_6">Bone Repair</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="40c754b1abf0484392bcdeba99f2d7a3"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_7" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl7$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_7">Brain Injury</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="6b07e1832f9f4e5e9795182a93d9bbba"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_8" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl8$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_8">Burns</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="afc7f9d1bc2e46a1a98605961eb5450b"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_9" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl9$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_9">Bursitis</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="7deb90f43d6c4a368ab8ff8d40428651"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_10" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl10$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_10">Carpal Tunnel</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="46c2b7e4fcd344ccb97400abccdeac1c"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_11" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl11$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_11">Cell Proliferation</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="9ce7c883c2b74b60814cbe333189d3c5"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_12" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl12$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_12">Circulation</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="236558677c6d4d4299069d8beaf6211b"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_13" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl13$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_13">Contusions</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="30dcf098424543f3be0f8ec942544ae7"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_14" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl14$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_14">Dentistry</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="7b767cfcbd064159b8ae924a9718aca1"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_15" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl15$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_15">Depression</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="0be7246734fd43a187c042a90ad1ac8e"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_16" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl16$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_16">Energy Metabolism</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="077d5c15f73e469491bd406a9dbe1191"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_17" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl17$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_17">Fractures</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="7321a89452f948a280887190e76e2045"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_18" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl18$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_18">Implants</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="dcff9823e0834ed78e0802d43aba2452"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_19" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl19$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_19">Inflammation</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="4cd92633004b48e3afb809694b90643f"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_20" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl20$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_20">Multiple Sclerosis</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="d5f0c4799426439a8005f316e051457a"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_21" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl21$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_21">Myofascial</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="397bc5aac02a47fca1945ee820714be9"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_22" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl22$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_22">Neuritis</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="3280187763a34b709b6d3cb5dff8b918"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_23" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl23$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_23">Neurological</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="40bd7813129d4dcbb46a6e9f409d54c4"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_24" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl24$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_24">Neuropathy</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="663c896ceea84842a19f46ee1f786e29"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_25" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl25$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_25">Oral Mucositis</label></span>
-                                </li>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                            </ul>
-
-                            <ul class="col2">
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="469deb2df2f446669d41db61cfe85f1e"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_26" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl26$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_26">Orthodontics</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="0b359893e9a34a03bf9dff76b4db737b"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_27" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl27$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_27">Osteoblasts</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="19cdc1ca1b3d46f49b0c5b4d52fdff43"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_28" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl28$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_28">Other</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="b5920f93a7144afcb6312dd66154c02d"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_29" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl29$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_29">Pain</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="a0a6a90fef654a4598d7c3236c027299"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_30" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl30$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_30">Parkinsons</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="df661d036de84da9bce1f6e098de9326"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_31" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl31$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_31">Periodontium</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="4ea09387e611480ebf09a411b8a4af62"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_32" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl32$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_32">Proliferation</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="6957fc65c9a94b8d8a22eca070ff462b"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_33" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl33$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_33">Radiculopathy</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="046d4209f6ac4c12b56d5b319efc20cd"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_34" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl34$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_34">ROM</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="4060519effcb4ccda9ab0b8f1171e2bd"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_35" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl35$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_35">Scars</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="9bd311a11f3846208ca129293a480ac5"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_36" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl36$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_36">Skin Conditions</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="ee88449cf0ff456095317590d897a9a6"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_37" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl37$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_37">Spasm</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="63e58a7bd38d471bb6f68fa33a73b9a7"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_38" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl38$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_38">Sports Performance and Recovery</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="cc71060017fe418cb4b33d9233da2e85"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_39" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl39$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_39">Sprains</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="097e37e0aedd491888842830dd0e5d90"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_40" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl40$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_40">Strain</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="f0368169afcb4702afe62ae1dc5a9a0a"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_41" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl41$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_41">Stroke</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="b989e1e367f64c21a5d25a5f44e5995e"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_42" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl42$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_42">Swelling</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="9ba2cd98692f41f98224b3e0a2e55130"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_43" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl43$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_43">Tendinitis</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="8db472bdb0a346cda50b763472e5001e"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_44" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl44$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_44">Tennis Elbow</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="70619f55da7d49afa27944460207fc91"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_45" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl45$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_45">Tissue Repair</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="0730fce67255452f8b1c802bf88ac7c1"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_46" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl46$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_46">TMD</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="de9381a487c8417ba96e41d1e81042d9"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_47" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl47$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_47">Tooth Extraction</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="3ccc8e7940ca41c6a7032a73c449f50a"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_48" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl48$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_48">Ulcers</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="7aeb0cf8c45549a2863a034ec5949f10"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_49" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl49$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_49">Vascular Conditions</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="572f7e7530f144028a1c7eb56af7f018"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_50" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl50$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_50">Wound Care</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="a4185d8f9c4b41c8b3f82296cd61e258"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_51" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl0$lvFilterTags$ctrl51$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_0_cbTag_51">Wounds</label></span>
-                                </li>
-                            </ul>
-                        </div>
-
+                <div class="accordionContent" style="display: none;">
+                    <div class="filterCategoriesGrid">
+                        @foreach (var category in filterSection.Categories)
+                        {
+                            <div class="filterType" data-id="@category.Key">
+                                <h3>@category.Title</h3>
+                                <div class="theFilters">
+                                    <ul>
+                                        @foreach (var tag in category.Tags)
+                                        {
+                                            <li>
+                                                @if (tag.IsUsed)
+                                                {
+                                                    <span data-id="@tag.Key">
+                                                        <input 
+                                                            id="filter_@tag.Key.ToString("N")" 
+                                                            type="checkbox" 
+                                                            name="filter" 
+                                                            value="@tag.Key"
+                                                            data-tag-key="@tag.Key"
+                                                            class="filter-checkbox">
+                                                        <label for="filter_@tag.Key.ToString("N")">@tag.Name</label>
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="aspNetDisabled disabled" data-id="@tag.Key">
+                                                        <input 
+                                                            id="filter_@tag.Key.ToString("N")" 
+                                                            type="checkbox" 
+                                                            name="filter" 
+                                                            disabled="disabled">
+                                                        <label for="filter_@tag.Key.ToString("N")">@tag.Name</label>
+                                                    </span>
+                                                }
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                        }
                     </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_pnlCategory_1" class="filterType" data-id="ccacb58d15104e438351eb6b5e37fea3">
-
-                        <h3>Body Part</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="036d63ff603b4642afba032c9a54dfed"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_0">Abdomen</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="d3678478bfc7481ba3c98ae5ddbdf6ec"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl1$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_1">Ankle</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="b1553b40256c46cd8f5a80a37764b677"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl2$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_2">Back</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="7e07cb60745441db9b9df22f1e29c124"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl3$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_3">Body</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="5d061ab67bcf473ba480fbe0f2e113aa"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_4" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl4$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_4">Cervical Spine</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="56262dfa527845e5bf14a9e9c05fa40c"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_5" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl5$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_5">Chest</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="f3d03fa41e0a4cbaa25349bf9036fa68"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_6" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl6$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_6">Elbow</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="10479fb6522045639e3c0476fb12edc0"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_7" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl7$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_7">Face</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="d31e378573b24e56b51eb9e2444f19f1"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_8" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl8$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_8">Fingers</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="362f67ad9218490d96ac407d9dec7a97"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_9" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl9$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_9">Foot</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="68db329f03334404bbde159af916b4f8"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_10" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl10$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_10">Groin</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="555df9bef47a47b1a62212d5b4ca0abd"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_11" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl11$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_11">Hamstring</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="bf40ba3c1f144474895c2f147a05387f"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_12" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl12$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_12">Hand</label></span>
-                                </li>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                            </ul>
-
-                            <ul class="col2">
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="6a054210423746559eed40280ca1a49e"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_13" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl13$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_13">Head</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="5059d53cea2f483a98a5803a4633138d"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_14" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl14$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_14">Hip</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="409e280b564c4c7b97de7b0abf83d11a"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_15" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl15$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_15">Knee</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="8d3943de4c9b4b8ebb7b33c7c271797c"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_16" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl16$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_16">Lumbar Spine</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="3cfd77db900d4e3aabd83897cfc76a89"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_17" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl17$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_17">Neck</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="29c50c7906f74660b24d06d15389ff70"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_18" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl18$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_18">Sacrum</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="fe05a0c6c9d14049b58e56bd08fa1650"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_19" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl19$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_19">Shoulder</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="525974c63e7b4eee8212ea2831d6d5a2"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_20" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl20$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_20">Skin</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="f0e9bf9509774f62b4320fb634b73023"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_21" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl21$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_21">Spine</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="989b4f3b0b0b4dbeafbe1b128909c635"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_22" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl22$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_22">Tag New</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="e775867a7013416db4641f844ad71918"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_23" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl23$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_23">Thoracic Spine</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="ffc3bd85913241e99830324cf75fb797"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_24" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl24$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_24">Toes</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="53ec0fdeab6348988d4bf08bfc2a346c"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_25" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl1$lvFilterTags$ctrl25$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_1_cbTag_25">Wrist</label></span>
-                                </li>
-                            </ul>
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_pnlCategory_2" class="filterType" data-id="44e544d3f276499eb0597d0a5b25761c">
-
-                        <h3>Region</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span data-id="c63dfdb4f811405398767bb4b49c1d28"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl2$lvFilterTags$ctrl0$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_0">Back</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="51ffaeaa67c6408b974b6b682512670e"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl2$lvFilterTags$ctrl1$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_1">Chest</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="e133c5fb1b38463183d7806563de16ca"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl2$lvFilterTags$ctrl2$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_2">General</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="6934da0b2c0847c481f257ae09776039"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl2$lvFilterTags$ctrl3$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_3">Head</label></span>
-                                </li>
-
-
-
-
-
-
-
-
-
-                            </ul>
-
-                            <ul class="col2">
-                                <li>
-                                    <span data-id="2e209617f0be4a4da82655735e3a6c20"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_4" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl2$lvFilterTags$ctrl4$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_4">LE</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="3261cb48fdca436da0519b9f53c1d170"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_5" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl2$lvFilterTags$ctrl5$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_5">Neck</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="9c97adb6c276453daac66466579913d3"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_6" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl2$lvFilterTags$ctrl6$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_6">Trunk</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="ec0cad429bcd47e4badb27a868679f35"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_7" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl2$lvFilterTags$ctrl7$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_2_cbTag_7">UE</label></span>
-                                </li>
-                            </ul>
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_pnlCategory_3" class="filterType" data-id="a057febded994039aec9096cf381360a">
-
-                        <h3>Research Category</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="f67ecb5bc7ac442baf05a16f37ed2146"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_0">Adipose Tissue</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="9c562ba99e0e4dc397b5c1781b80dbff"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_1">Alcoholism</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="dd639f440b244aaba1023b7abedb698c"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl2$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_2">Auto Immunity</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="dec2bc042adc490ebe3f015a4e3b9b22"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl3$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_3">Bone</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="c196d16d88af4f8f95c754f01350d838"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_4" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl4$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_4">Brain</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="d49afbbe8cf741d4891824da72af3af5"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_5" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl5$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_5">Breast</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="adb8553ee4da48b7bc9a41b48b26fff5"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_6" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl6$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_6">Carpal Tunnel</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="8ed02f2175e242ea853a13f282783eb7"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_7" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl7$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_7">Cells</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="06fdf1f44b3644a2a80f31fa07b23dc0"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_8" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl8$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_8">Circulation</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="93e83d10f9354bb7b11d04a75fff4955"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_9" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl9$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_9">Cosmetic</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="a4ca0a1d458840149a7da801bc2d5df6"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_10" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl10$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_10">Dermatology</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="870b401c19504421bef79e915ffd3f27"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_11" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl11$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_11">Development</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="e5dc87462e744f47b3f698bbbbadd2fd"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_12" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl12$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_12">Diabetes</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="e6ddf256f7c84fcb8ea22fec247b5aaf"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_13" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl13$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_13">Edema</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="ec7be76a5dc143bb8daaf389f6246e22"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_14" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl14$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_14">Eyes</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="85752159515247c193e4add748339891"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_15" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl15$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_15">Fertility</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="54163683f4ca43d3a96d3ab5f7bfca08"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_16" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl16$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_16">Fibromyalgia</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="e728b2c2af324e2485d28393a64911ae"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_17" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl17$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_17">Gastroenterology</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="cb5954230ccc4fe2bd38be32a1f35d77"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_18" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl18$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_18">Gene Expression</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="71c4650fa30043eba913ef18565c0b2a"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_19" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl19$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_19">General</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="c4ab79d2445644d6af8b536fa555402f"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_20" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl20$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_20">Hair</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="330b2983799345f895189ed1927c7b03"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_21" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl21$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_21">Hearing</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="785253492a2a403b88b3e7fea103bfe4"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_22" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl22$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_22">Heart</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="c1d2375058a94e449cbf856b2ba234a7"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_23" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl23$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_23">Immunity</label></span>
-                                </li>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                            </ul>
-
-                            <ul class="col2">
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="f8c75803c7d44a2495006cd31132b378"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_24" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl24$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_24">Inflammation</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="3882162c65f44e109d866333df8d7e31"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_25" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl25$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_25">Joint</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="ee49da8813764b48bb5e964dbb6d84f0"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_26" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl26$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_26">Kidney</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="66a11b6f4fa34ccba60c11632eeeade5"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_27" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl27$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_27">Ligaments</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="061ddfab00624265a7f79f7864d6ea28"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_28" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl28$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_28">LLLT</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="ef015c2395734f1c8912c60275a9d968"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_29" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl29$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_29">Lymphedema</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="ea6c434ac22d4446ae339337f75e9d68"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_30" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl30$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_30">Mechanisms</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="5845bcbe24c94fbdb731d1cc77455b5b"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_31" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl31$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_31">Micro Organisms</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="a91f69710ebe498981ff839da39bee73"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_32" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl32$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_32">Muscle</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="a7eca49a8e5a407da70cbc57b56c4992"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_33" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl33$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_33">Muscle</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="087b3b2743de4f2594ddf88cce3f88bf"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_34" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl34$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_34">Nerves</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="6dea6975baf64653a01a28aa2e74ea53"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_35" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl35$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_35">Oncology</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="cd3385791bf74cbb90dcf42ea2b7a98c"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_36" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl36$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_36">Oral</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="01653a118f6f47238f2c9106c3cb3340"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_37" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl37$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_37">Other</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="9c34a712637a421aa3539ce68cc8207c"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_38" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl38$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_38">Pain</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="5650ee1656ee457fb53bc815d328340b"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_39" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl39$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_39">Parameters</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="bc704bcd69774bb4bcb2a885843f49e1"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_40" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl40$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_40">Penetration</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="d58b29e765424316a61e7e1b20deb031"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_41" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl41$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_41">Radiation</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="60cdb3734d4945b694ddf349564fb760"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_42" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl42$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_42">Respiratory</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="be5012cf17664281bd51c06a2ad8253f"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_43" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl43$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_43">Skin</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="d886e4c4eb8d4f53bc48c69b6a66a1b4"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_44" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl44$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_44">Spinal</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="df3877fce91d49bf94a5291a61c3b1e7"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_45" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl45$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_45">Stem Cells</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="669cb52dc7b14682bbe59b20b92ebb49"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_46" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl46$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_46">Tendons</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="42b839c018bd49589545b3f1555af497"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_47" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl47$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_47">Thyroid</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="e33c326bddc44e9aa68aa35211b2a332"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_48" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl3$lvFilterTags$ctrl48$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_3_cbTag_48">Wound Healing</label></span>
-                                </li>
-                            </ul>
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_pnlCategory_4" class="filterType" data-id="81d7aa7d38bb4e018b60af62bf5b26a6">
-
-                        <h3>Tissue</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span data-id="2fdddc72ee2b4753975d40898c07c111"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_4_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl4$lvFilterTags$ctrl0$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_4_cbTag_0">Animal</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="07ef085188604a87ad683e0cb26df483"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_4_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl4$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_4_cbTag_1">Human</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="0559b9d8317546e8ad598f82984d3449"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_4_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl0$lvFilterCategory$ctrl4$lvFilterTags$ctrl2$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_0_lvFilterTags_4_cbTag_2">Other</label></span>
-                                </li>
-
-                            </ul>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-        <div id="content_0_controls_0_lvFilterSection_pnlSection_1" class="accordionPanel" data-id="ae7ad9ea14534b128ec0b4f35abc4a74">
-
-            <div class="accordionHeader">
-                <div class="accordionToggle">
-                    <img src="/images/accordionToggle_Plus.jpg" alt="Accordion Toggle">
-                </div>
-                <div class="accordionTitle">
-                    Laser Characteristics
                 </div>
             </div>
-            <div class="accordionContent" style="display: none;">
-
-
-                <div class="filterRow">
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_pnlCategory_0" class="filterType" data-id="c270c3c7cb65445a9805dacd63634757">
-
-                        <h3>Type of Device</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span data-id="59721085b48646e5b8facd14f5432f80"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_0_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl0$lvFilterTags$ctrl0$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_0_cbTag_0">Laser</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="6e0fbf8d322945709777dc8693dbf002"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_0_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl0$lvFilterTags$ctrl1$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_0_cbTag_1">LED</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="7375bf4ead454025b0b3d18ff06f17e5"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_0_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl0$lvFilterTags$ctrl2$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_0_cbTag_2">Magnetic</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="2c77457cdac54b45b784d55b72a3a2df"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_0_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl0$lvFilterTags$ctrl3$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_0_cbTag_3">ESTIM</label></span>
-                                </li>
-
-                            </ul>
-
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_pnlCategory_1" class="filterType" data-id="004ab7fffb034dbf9a4c0d2d6d5ae60b">
-
-                        <h3>Color</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span data-id="e00fdd211b2a4e098865d8131329041a"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_1_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl1$lvFilterTags$ctrl0$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_1_cbTag_0">Red</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="b3b9a6d5027947298502652f5022518a"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_1_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl1$lvFilterTags$ctrl1$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_1_cbTag_1">Infrared</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="15ade95bd73f4ace8789e58f96e721a8"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_1_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl1$lvFilterTags$ctrl2$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_1_cbTag_2">Blue</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="119afface73043fcb9d606513873c1e8"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_1_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl1$lvFilterTags$ctrl3$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_1_cbTag_3">Other</label></span>
-                                </li>
-
-                            </ul>
-
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_pnlCategory_2" class="filterType" data-id="f02c08e302b546afb3ea1a64f0b842b2">
-
-                        <h3>Type of Testing</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="b5cfb0bfc7184c109084eec80f4828f0"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_2_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl2$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_2_cbTag_0">In-vivo</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="ad6c72715f8b409eb381106ccb25f59f"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_2_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl2$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_2_cbTag_1">In-vitro</label></span>
-                                </li>
-
-                            </ul>
-
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_pnlCategory_3" class="filterType" data-id="9f76b3a9a31245a383c3f1c97971065b">
-
-                        <h3>Wavelengths</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="9d5f5298d20d413495fd8aa4723b2caa"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl3$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_0">1001+</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="f5c671a77aa142a88ced5a8266e1aba7"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl3$lvFilterTags$ctrl1$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_1">400-500</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="2818e9c73aa943739934a9651e7dc814"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl3$lvFilterTags$ctrl2$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_2">501-599</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="b90895ff60ff4eb5bc0987638aeb2848"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl3$lvFilterTags$ctrl3$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_3">600-700</label></span>
-                                </li>
-
-
-
-
-
-
-
-
-
-                            </ul>
-
-                            <ul class="col2">
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="9e4c77124bea4776a666956e53d82616"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_4" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl3$lvFilterTags$ctrl4$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_4">701-799</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="672c42f706da41f4b681cd26d16f39fd"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_5" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl3$lvFilterTags$ctrl5$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_5">800-900</label></span>
-                                </li>
-                                <li>
-                                    <span data-id="b64299844e91465da8589a2ad19ef55d"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_6" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl3$lvFilterTags$ctrl6$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_6">901-910</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="8052f688b8284ca4a8dac36bafc48939"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_7" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl3$lvFilterTags$ctrl7$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_3_cbTag_7">911-1000</label></span>
-                                </li>
-                            </ul>
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_pnlCategory_4" class="filterType" data-id="5700692f6d154cb3a005bf96d5b58d8b">
-
-                        <h3>Probe Construction</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span data-id="1a77710e790f4a948f8e720f6eac5855"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_4_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl4$lvFilterTags$ctrl0$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_4_cbTag_0">Combo</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="23213858230d4dbfbe44f89e0458a7a5"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_4_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl4$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_4_cbTag_1">Lasers</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="ce416edb452f442d8477379506f46740"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_4_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl4$lvFilterTags$ctrl2$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_4_cbTag_2">LEDs</label></span>
-                                </li>
-
-                            </ul>
-
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_pnlCategory_5" class="filterType" data-id="46d4e309bc764bc78f9f638f311901b2">
-
-                        <h3>Power</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span data-id="6faee1645c1b4ef3b3544fc3815fcba0"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_5_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl5$lvFilterTags$ctrl0$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_5_cbTag_0">&lt;500 mW</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="46cb305a5ab44b1db75336fb7ab40330"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_5_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl5$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_5_cbTag_1">&gt;500 mW</label></span>
-                                </li>
-
-                            </ul>
-
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_pnlCategory_6" class="filterType" data-id="d690a8b8e832413cba879da31b3a428e">
-
-                        <h3>Frequency</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="4f6fc6c5f54e48d1bcc090dbba7b6ff1"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_6_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl6$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_6_cbTag_0">CW</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="6e55e3081e35434582bf95fae47a445d"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_6_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl6$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_6_cbTag_1">Duty Cycle</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="f45c241478fb48bcb5d93905cc9f7bdf"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_6_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl6$lvFilterTags$ctrl2$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_6_cbTag_2">Super Pulsed</label></span>
-                                </li>
-
-                            </ul>
-
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_pnlCategory_7" class="filterType" data-id="a61e9b1ab4714865b3d0c14580edd27c">
-
-                        <h3>Safety</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="64df088da4f840279a35896b8aea248d"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_7_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl7$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_7_cbTag_0">Class 1</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="66a4b6edbcb64ed6a5fe3ee3e2a76752"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_7_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl7$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_7_cbTag_1">Class 2</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="962c60dc30f347a8ab9f029c1c968d61"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_7_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl7$lvFilterTags$ctrl2$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_7_cbTag_2">Class 3</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="283f1fb0db6b42fd877a20ce7d4f7de0"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_7_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl7$lvFilterTags$ctrl3$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_7_cbTag_3">Class 4</label></span>
-                                </li>
-
-                            </ul>
-
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_pnlCategory_8" class="filterType" data-id="96a2ac03ca4e4abc9fc54fb17df7fc80">
-
-                        <h3>Product Relativity</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="652bd12df70d4ae68f7cbfbbb03fde87"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl8$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_0">ACTIV</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="8230a568114c4dc8884883501e08a1a8"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl8$lvFilterTags$ctrl1$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_1">ACTIVet</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="8987428e4a194bfaaffdcd9e42b4ecc7"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl8$lvFilterTags$ctrl2$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_2">GameDay</label></span>
-                                </li>
-
-
-
-
-
-
-
-
-
-                            </ul>
-
-                            <ul class="col2">
-                                <li>
-                                    <span data-id="bc05b9456aee4e33a98c65b93c03f407"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl8$lvFilterTags$ctrl3$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_3">MR4</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="73e807de94b045e1b0315d8ba44d2e8e"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_4" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl8$lvFilterTags$ctrl4$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_4">PainAway</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="b1f184798cac4584965888a3ad176212"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_5" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl8$lvFilterTags$ctrl5$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_5">TQ</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="2ef3aa46ba0546b5ae81079957c94f45"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_6" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl1$lvFilterCategory$ctrl8$lvFilterTags$ctrl6$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_1_lvFilterTags_8_cbTag_6">TQ Solo</label></span>
-                                </li>
-                            </ul>
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-        <div id="content_0_controls_0_lvFilterSection_pnlSection_2" class="accordionPanel" data-id="eeca2ac3eede43b8be7c42cd31b73429">
-
-            <div class="accordionHeader">
-                <div class="accordionToggle">
-                    <img src="/images/accordionToggle_Plus.jpg" alt="Accordion Toggle">
-                </div>
-                <div class="accordionTitle">
-                    Study Characteristics
-                </div>
-            </div>
-            <div class="accordionContent" style="display: none;">
-
-
-                <div class="filterRow">
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_pnlCategory_0" class="filterType" data-id="cc8082ea0c8a455cb12bd0162957585d">
-
-                        <h3>Type of Research Study</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="6d74bbe179cb47f0b9d97e5f6130d5fd"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl0$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_0">Basic</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="f9ab9d8ff6874f4a99e7d654b025e357"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl0$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_1">Case-control</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="d0fdbe98d0b34385873d1035a30ab68c"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl0$lvFilterTags$ctrl2$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_2">Cohort</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="29ee68f40a15449bbe97f033833c65b2"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl0$lvFilterTags$ctrl3$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_3">Cross-Sectional</label></span>
-                                </li>
-
-
-
-
-
-
-
-
-
-
-
-                            </ul>
-
-                            <ul class="col2">
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="a05f439101134b459e0444d0ad0de3c2"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_4" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl0$lvFilterTags$ctrl4$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_4">Meta-analysis</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="c3ea1a998de54c348183216e219dfeb2"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_5" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl0$lvFilterTags$ctrl5$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_5">Non-Randomized</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="68dc8eb7ae994425bfda73d0f168e0bd"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_6" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl0$lvFilterTags$ctrl6$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_6">Other</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="c802aee4dee941d687e8ba50f86d6da1"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_7" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl0$lvFilterTags$ctrl7$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_7">Randomized Controlled</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="af18ca70a17445829710fac4cd4b9cc2"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_8" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl0$lvFilterTags$ctrl8$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_0_cbTag_8">Systematic review</label></span>
-                                </li>
-                            </ul>
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_pnlCategory_1" class="filterType" data-id="b8f02bc7b6e74d7593a8963d7a0f288e">
-
-                        <h3>Comparative Study</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="19f1e1947bff4282a0e9e5943e2fa756"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_1_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl1$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_1_cbTag_0">No</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="bbf73fc0048e457eb1114189fa019d5d"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_1_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl1$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_1_cbTag_1">Yes</label></span>
-                                </li>
-
-                            </ul>
-
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_pnlCategory_2" class="filterType" data-id="797ed99247e54fd990263357eb76110b">
-
-                        <h3>Type of Output</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="e9110d18b6ad46d5b4f323f673ce9e33"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_2_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl2$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_2_cbTag_0">CW</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="c61c49155f68408b8d3b5547dc862a79"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_2_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl2$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_2_cbTag_1">DC</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="bc8b89a274ce41d3ae162f460b265347"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_2_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl2$lvFilterTags$ctrl2$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_2_cbTag_2">SPL</label></span>
-                                </li>
-
-                            </ul>
-
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_pnlCategory_3" class="filterType" data-id="e24268d49f1f4c8a9da66aeb6b1939e0">
-
-                        <h3>Study Type</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="dda090d8cb1746088397b155d69e15c1"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl3$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_0">Dog</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="d9f520e026f84d748508b0e1e7648faf"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl3$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_1">Human</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="9704394e13ac4319bfaa0759384cffe9"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl3$lvFilterTags$ctrl2$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_2">Human Case Report</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="65dc32578664481fa06468f7159fc318"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl3$lvFilterTags$ctrl3$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_3">Meta-analysis</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="16faaba10c08445283e8c866f823a323"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_4" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl3$lvFilterTags$ctrl4$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_4">Monkey</label></span>
-                                </li>
-
-
-
-
-
-
-
-
-
-
-
-
-
-                            </ul>
-
-                            <ul class="col2">
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="39e5f0f1202041f4be6d0ba0ebcfa4c4"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_5" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl3$lvFilterTags$ctrl5$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_5">Mouse</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="9967ec03848d48c38387c70761e3903a"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_6" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl3$lvFilterTags$ctrl6$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_6">Other</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="4dba433d98974079a2d0b1b0e00ec153"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_7" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl3$lvFilterTags$ctrl7$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_7">Rabbit</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="19accee09bf34465b8a62617727ae71f"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_8" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl3$lvFilterTags$ctrl8$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_8">Rat</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="63cf22eb2cd547ceabc3a4da3bb90152"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_9" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl3$lvFilterTags$ctrl9$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_9">Review</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="ea0445840513485f961f91d5468050e3"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_10" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl2$lvFilterCategory$ctrl3$lvFilterTags$ctrl10$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_2_lvFilterTags_3_cbTag_10">Study Protocol</label></span>
-                                </li>
-                            </ul>
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-        <div id="content_0_controls_0_lvFilterSection_pnlSection_3" class="accordionPanel" data-id="b7ba01a35a9147ce8b3c88cffa586aba">
-
-            <div class="accordionHeader">
-                <div class="accordionToggle">
-                    <img src="/images/accordionToggle_Plus.jpg" alt="Accordion Toggle">
-                </div>
-                <div class="accordionTitle">
-                    Resource Characteristics
-                </div>
-            </div>
-            <div class="accordionContent" style="display: none;">
-
-
-                <div class="filterRow">
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_pnlCategory_0" class="filterType" data-id="1ae04960076e461db61a10a5e4492960">
-
-                        <h3>Type of Publication</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="a910a28dc30743a3b2a7e05419a89784"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_0_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl0$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_0_cbTag_0">Non-Peer</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="99543ca426be4de29d5266bae8ec1fcc"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_0_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl0$lvFilterTags$ctrl1$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_0_cbTag_1">Other</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="eae87ee841944c72941678b03d9c5b4e"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_0_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl0$lvFilterTags$ctrl2$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_0_cbTag_2">Peer Reviewed</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="f2ee359155944641b8433ef051308063"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_0_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl0$lvFilterTags$ctrl3$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_0_cbTag_3">Trade Journal</label></span>
-                                </li>
-
-                            </ul>
-
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_pnlCategory_1" class="filterType" data-id="a159b270adca45a296262e28b568bce7">
-
-                        <h3>LaserU Suggested</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="6f7601c0012a4ab4a56e6f50ea3e4e71"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_1_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl1$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_1_cbTag_0">No</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="05bd2dfd8b074a2f9bf01fde63a0b348"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_1_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl1$lvFilterTags$ctrl1$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_1_cbTag_1">Yes</label></span>
-                                </li>
-
-                            </ul>
-
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_pnlCategory_2" class="filterType" data-id="1d28c5ccb0f1425a9416c74f70035766">
-
-                        <h3>Outcome</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="c6312d9ad080472ca04db16f1ef344bb"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_2_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl2$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_2_cbTag_0">Equivalent</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="26edefbd7f094bc7a08bfe3f78be0d99"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_2_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl2$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_2_cbTag_1">Inconclusive</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="2b5811e33d56454fa659a7fcab6fa36c"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_2_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl2$lvFilterTags$ctrl2$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_2_cbTag_2">Negative</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="1f0c6d7652494b23bc84b31c4861f530"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_2_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl2$lvFilterTags$ctrl3$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_2_cbTag_3">Neutral</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="c0de403655fb448abe53ecd9111deea6"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_2_cbTag_4" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl2$lvFilterTags$ctrl4$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_2_cbTag_4">Positive</label></span>
-                                </li>
-
-                            </ul>
-
-                        </div>
-
-                    </div>
-
-                    <div id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_pnlCategory_3" class="filterType" data-id="509c540fdc4a44d38cf8fdcb60a3b1c6">
-
-                        <h3>Profession</h3>
-                        <div class="theFilters">
-
-                            <ul>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="f0a85be7cf4e46759b3d9e4adb038be7"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_0" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl3$lvFilterTags$ctrl0$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_0">AT</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="04269db137554764a37d59b835590cb6"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_1" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl3$lvFilterTags$ctrl1$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_1">Chiro</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="ce2db04dc7fe4faab0965d019d4ec79b"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_2" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl3$lvFilterTags$ctrl2$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_2">DO</label></span>
-                                </li>
-
-                                <li>
-                                    <span data-id="dbde9853883446d7b517278da4d7edbe"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_3" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl3$lvFilterTags$ctrl3$cbTag"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_3">DVM</label></span>
-                                </li>
-
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="9e67adb2e08648a4aee40c80dea3929a"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_4" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl3$lvFilterTags$ctrl4$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_4">ENT</label></span>
-                                </li>
-
-
-
-
-
-
-
-
-
-
-
-
-
-                            </ul>
-
-                            <ul class="col2">
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="ba1be80f09f94eaf847263d09a45a1ef"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_5" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl3$lvFilterTags$ctrl5$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_5">MD</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="e6ae8a8d59384f68a7d0c78fc9f3ba87"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_6" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl3$lvFilterTags$ctrl6$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_6">MT</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="b8a447f3b973422286fc381b83fc8ae0"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_7" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl3$lvFilterTags$ctrl7$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_7">OT</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="b5eb6a75f35442f89eb59d22a2b168f9"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_8" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl3$lvFilterTags$ctrl8$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_8">Other</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="e145ca28d14d4c1aa38adcd243d5e6bd"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_9" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl3$lvFilterTags$ctrl9$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_9">Pod</label></span>
-                                </li>
-                                <li>
-                                    <span class="aspNetDisabled disabled" data-id="52649c5d7fdb48d6aac2751106afefbc"><input id="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_10" type="checkbox" name="content_0$controls_0$lvFilterSection$ctrl3$lvFilterCategory$ctrl3$lvFilterTags$ctrl10$cbTag" disabled="disabled"><label for="content_0_controls_0_lvFilterSection_lvFilterCategory_3_lvFilterTags_3_cbTag_10">PT</label></span>
-                                </li>
-                            </ul>
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
+        }
     </div>
 </div>
-
 <div class="filterToggle">
     <img src="/images/filterToggleBtn.png" alt="Filter Toggle">
 </div>
@@ -1474,7 +228,7 @@
     </header>
     <section class="listing">
 
-        @if (!paged.Any())
+        @if (!allWebinars.Any())
         {
             <div class="listing-item">
                 <h2 class="listing-item-h2">No webinars found</h2>
@@ -1485,14 +239,19 @@
         }
         else
         {
-            foreach (var w in paged)
+            foreach (var w in allWebinars)
             {
                 var title = w.Value<string>("title")?.Trim();
                 
                 // Get the tags from the Content Picker property
                 var tagNodes = w.Value<IEnumerable<IPublishedContent>>("tags");
                 
-                <div class="listing-item">
+                // Build data-tags attribute (comma-separated tag Keys for filtering)
+                var tagKeys = tagNodes != null && tagNodes.Any() 
+                    ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString())) 
+                    : "";
+                
+                <div class="listing-item webinar-item" data-tags="@tagKeys" data-webinar-key="@w.Key">
                     <h2 class="listing-item-h2">@((string.IsNullOrWhiteSpace(title) ? w.Name : title))</h2>
 
                     <div class="listing-item-description">
@@ -1583,20 +342,202 @@
         
 
     </section>
-    @if (totalPages > 1)
-    {
-        <section class="pagination simple-pagination">
-            <ul class="pagination">
-                @for (var i = 1; i <= totalPages; i++)
-                {
-                    var isActive = i == currentPage;
-                    <li>
-                        <a class="pagination-link @(isActive ? "pagination-link-active" : null)" href="?page=@i">@i</a>
-                    </li>
-                }
-            </ul>
-        </section>
-    }
     <article class="content-article"></article>
 
 </div>
+
+<script>
+(function() {
+    'use strict';
+    
+    // Filter state
+    let selectedFilters = new Set();
+    let allWebinars = [];
+    let filteredWebinars = [];
+    
+    // DOM elements
+    const filterCheckboxes = document.querySelectorAll('.filter-checkbox');
+    const webinarItems = document.querySelectorAll('.webinar-item');
+    const totalResultsElement = document.querySelector('.totalResults');
+    const resetButton = document.getElementById('resetFilter');
+    
+    // Initialize webinar data
+    webinarItems.forEach(item => {
+        const tags = item.dataset.tags ? item.dataset.tags.split(',').filter(t => t.trim()) : [];
+        allWebinars.push({
+            element: item,
+            tags: tags,
+            tagSet: new Set(tags)
+        });
+    });
+    
+    filteredWebinars = [...allWebinars];
+    
+    // Filter functionality
+    function applyFilters() {
+        if (selectedFilters.size === 0) {
+            // No filters selected - show all
+            filteredWebinars = [...allWebinars];
+            allWebinars.forEach(w => w.element.style.display = 'block');
+        } else {
+            // Show only webinars that have ALL selected tags (AND logic)
+            filteredWebinars = allWebinars.filter(webinar => {
+                // Check if webinar has ALL selected filters
+                for (let filterKey of selectedFilters) {
+                    if (!webinar.tagSet.has(filterKey)) {
+                        return false; // Missing one of the selected filters
+                    }
+                }
+                return true;
+            });
+            
+            // Update display
+            allWebinars.forEach(webinar => {
+                webinar.element.style.display = filteredWebinars.includes(webinar) ? 'block' : 'none';
+            });
+        }
+        
+        // Update count
+        updateResultCount();
+    }
+    
+    function updateResultCount() {
+        if (totalResultsElement) {
+            totalResultsElement.textContent = filteredWebinars.length;
+        }
+    }
+    
+    // Checkbox change handler
+    filterCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const tagKey = this.value;
+            
+            if (this.checked) {
+                selectedFilters.add(tagKey);
+            } else {
+                selectedFilters.delete(tagKey);
+            }
+            
+            applyFilters();
+        });
+    });
+    
+    // Reset button
+    if (resetButton) {
+        resetButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Uncheck all checkboxes
+            filterCheckboxes.forEach(cb => cb.checked = false);
+            
+            // Clear selected filters
+            selectedFilters.clear();
+            
+            // Show all webinars
+            applyFilters();
+            
+            // Collapse all accordions
+            document.querySelectorAll('.accordionContent').forEach(content => {
+                content.style.display = 'none';
+            });
+            document.querySelectorAll('.accordionToggle img').forEach(toggle => {
+                toggle.src = '/images/accordionToggle_Plus.jpg';
+            });
+        });
+    }
+    
+    // Initialize count
+    updateResultCount();
+})();
+</script>
+
+<style>
+/* Filter Categories Grid - 8 columns on desktop */
+.filterCategoriesGrid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 20px;
+    padding: 20px;
+}
+
+/* Tablet: 4 columns */
+@@media (max-width: 1200px) {
+    .filterCategoriesGrid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* Mobile: 2 columns */
+@@media (max-width: 768px) {
+    .filterCategoriesGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Very small mobile: 1 column */
+@@media (max-width: 480px) {
+    .filterCategoriesGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Filter Type (Category) styling */
+.filterType {
+    display: flex;
+    flex-direction: column;
+    min-width: 0; /* Allow grid items to shrink below content size */
+    break-inside: avoid; /* Keep category together when possible */
+}
+
+.filterType h3 {
+    font-size: 14px;
+    font-weight: bold;
+    margin: 0 0 10px 0;
+    padding: 0;
+    word-wrap: break-word;
+}
+
+/* Multi-column layout for tag lists with max 25 items per column */
+.filterType .theFilters ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    column-count: auto;
+    column-width: 180px; /* Adjust based on your tag name lengths */
+    column-gap: 15px;
+    max-height: calc(25 * 29px); /* 25 items * (line height + margin) */
+    overflow: visible;
+}
+
+/* Prevent list items from breaking across columns */
+.filterType .theFilters li {
+    margin: 0 0 8px 0;
+    padding: 0;
+    font-size: 13px;
+    word-wrap: break-word;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+}
+
+.filterType .theFilters input[type="checkbox"] {
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.filterType .theFilters label {
+    cursor: pointer;
+    vertical-align: middle;
+    display: inline;
+}
+
+/* Disabled filter styling */
+.filterType .theFilters .aspNetDisabled.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.filterType .theFilters .aspNetDisabled.disabled label {
+    cursor: not-allowed;
+}
+</style>
