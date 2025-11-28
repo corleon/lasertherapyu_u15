@@ -5,609 +5,612 @@
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 @{
 
-    Layout = "master.cshtml";
+	Layout = "master.cshtml";
 
-    // --- Query + paging config ---
-    // For filtering to work, we need to show all webinars (filtered client-side)
-    // Pagination will be handled by JavaScript after filtering
+	// --- Query + paging config ---
+	// For filtering to work, we need to show all webinars (filtered client-side)
+	// Pagination will be handled by JavaScript after filtering
 
-    // Pick up children of this "Webinar List" page that are either 'veterinaryWebinar' or 'webinar'
-    var allWebinars = Model!.Children()
-        .Where(x => x.IsPublished()
-            && (x.ContentType.Alias == "veterinaryWebinar" || x.ContentType.Alias == "webinar"))
-        // Treat items with 'active' unchecked as hidden; null or true = show
-        .Where(x => x.Value<bool?>("active") != false)
-        .OrderByDescending(x => x.Value<DateTime?>("date") ?? DateTime.MinValue)
-        .ThenBy(x => x.Name)
-        .ToList();
+	// Pick up children of this "Webinar List" page that are either 'veterinaryWebinar' or 'webinar'
+	var allWebinars = Model!.Children()
+		.Where(x => x.IsPublished()
+			&& (x.ContentType.Alias == "veterinaryWebinar" || x.ContentType.Alias == "webinar"))
+		// Treat items with 'active' unchecked as hidden; null or true = show
+		.Where(x => x.Value<bool?>("active") != false)
+		.OrderByDescending(x => x.Value<DateTime?>("date") ?? DateTime.MinValue)
+		.ThenBy(x => x.Name)
+		.ToList();
 
-    var total = allWebinars.Count;
-    // Display all webinars (filtering handled client-side)
+	var total = allWebinars.Count;
+	// Display all webinars (filtering handled client-side)
 
-    string DisplayDate(IPublishedContent c)
-        => c.Value<DateTime?>("date")?.ToString("MM/dd/yyyy") ?? "";
+	string DisplayDate(IPublishedContent c)
+		=> c.Value<DateTime?>("date")?.ToString("MM/dd/yyyy") ?? "";
 
-    string DisplayLength(IPublishedContent c)
-        => (c.Value<string>("length") ?? "").Trim();
+	string DisplayLength(IPublishedContent c)
+		=> (c.Value<string>("length") ?? "").Trim();
 
-    string Summary(IPublishedContent c)
-    {
-        var html = c?.Value<string>("description") ?? "";
-        var text = html.Trim();
+	string Summary(IPublishedContent c)
+	{
+		var html = c?.Value<string>("description") ?? "";
+		var text = html.Trim();
 
-        return text;@* Length <= max ? text : text.Substring(0, max).TrimEnd() + "…";*@
-    }
+		return text;@* Length <= max ? text : text.Substring(0, max).TrimEnd() + "…";*@
+	}
 
-    // ============================================================================
-    // DYNAMIC FILTER SYSTEM
-    // ============================================================================
-    
-    // Find the Filters root node
-    var filtersRoot = Umbraco.ContentAtRoot()
-        .DescendantsOrSelfOfType("filterRoot")
-        .FirstOrDefault();
+	// ============================================================================
+	// DYNAMIC FILTER SYSTEM
+	// ============================================================================
 
-    // Collect all tag Keys used in current webinars
-    var usedTagKeys = new HashSet<Guid>();
-    foreach (var webinar in allWebinars)
-    {
-        var tags = webinar.Value<IEnumerable<IPublishedContent>>("tags");
-        if (tags != null)
-        {
-            foreach (var tag in tags.Where(t => t != null))
-            {
-                usedTagKeys.Add(tag.Key);
-            }
-        }
-    }
+	// Find the Filters root node
+	var filtersRoot = Umbraco.ContentAtRoot()
+		.DescendantsOrSelfOfType("filterRoot")
+		.FirstOrDefault();
 
-    // Build filter structure
-    var filterSections = new List<dynamic>();
-    if (filtersRoot != null)
-    {
-        // Get sections (children of Filters root)
-        var sections = filtersRoot.Children()
-            .Where(s => s.ContentType.Alias == "filterSection" && s.IsPublished())
-            .OrderBy(s => s.SortOrder)
-            .ToList();
+	// Collect all tag Keys used in current webinars
+	var usedTagKeys = new HashSet<Guid>();
+	foreach (var webinar in allWebinars)
+	{
+		var tags = webinar.Value<IEnumerable<IPublishedContent>>("tags");
+		if (tags != null)
+		{
+			foreach (var tag in tags.Where(t => t != null))
+			{
+				usedTagKeys.Add(tag.Key);
+			}
+		}
+	}
 
-        foreach (var section in sections)
-        {
-            var categories = new List<dynamic>();
-            
-            // Get categories within this section
-            var sectionCategories = section.Children()
-                .Where(c => c.ContentType.Alias == "filterCategory" && c.IsPublished())
-                .OrderBy(c => c.SortOrder)
-                .ToList();
+	// Build filter structure
+	var filterSections = new List<dynamic>();
+	if (filtersRoot != null)
+	{
+		// Get sections (children of Filters root)
+		var sections = filtersRoot.Children()
+			.Where(s => s.ContentType.Alias == "filterSection" && s.IsPublished())
+			.OrderBy(s => s.SortOrder)
+			.ToList();
 
-            foreach (var category in sectionCategories)
-            {
-                // Get tags within this category
-                var categoryTags = category.Children()
-                    .Where(t => t.ContentType.Alias == "filterTag" && t.IsPublished())
-                    .OrderBy(t => t.SortOrder)
-                    .Select(t => new {
-                        Key = t.Key,
-                        Name = t.Value<string>("tagName") ?? t.Name,
-                        Alias = t.GetProperty("tagKey")?.GetValue() as string ?? t.Name.ToLower().Replace(" ", "-"),
-                        IsUsed = usedTagKeys.Contains(t.Key)
-                    })
-                    .ToList();
+		foreach (var section in sections)
+		{
+			var categories = new List<dynamic>();
 
-                // Only include category if it has tags
-                if (categoryTags.Any())
-                {
-                    // Calculate how many grid columns this category should span
-                    // Based on tag count: 1-25 tags = 1 column, 26-50 = 2 columns, 51-75 = 3 columns, etc.
-                    var usedTagCount = categoryTags.Count(t => t.IsUsed);
-                    var columnSpan = (int)Math.Ceiling(usedTagCount / 25.0);
-                    columnSpan = Math.Max(1, Math.Min(columnSpan, 6)); // Min 1, max 6 columns
-                    
-                    categories.Add(new {
-                        Key = category.Key,
-                        Title = category.Value<string>("categoryTitle") ?? category.Name,
-                        Tags = categoryTags,
-                        HasUsedTags = categoryTags.Any(t => t.IsUsed),
-                        ColumnSpan = columnSpan,
-                        UsedTagCount = usedTagCount
-                    });
-                }
-            }
+			// Get categories within this section
+			var sectionCategories = section.Children()
+				.Where(c => c.ContentType.Alias == "filterCategory" && c.IsPublished())
+				.OrderBy(c => c.SortOrder)
+				.ToList();
 
-            // Only include section if it has categories with tags
-            if (categories.Any())
-            {
-                filterSections.Add(new {
-                    Key = section.Key,
-                    Title = section.Value<string>("sectionTitle") ?? section.Name,
-                    Categories = categories
-                });
-            }
-        }
-    }
+			foreach (var category in sectionCategories)
+			{
+				// Get tags within this category
+				var categoryTags = category.Children()
+					.Where(t => t.ContentType.Alias == "filterTag" && t.IsPublished())
+					.OrderBy(t => t.SortOrder)
+					.Select(t => new
+					{
+						Key = t.Key,
+						Name = t.Value<string>("tagName") ?? t.Name,
+						Alias = t.GetProperty("tagKey")?.GetValue() as string ?? t.Name.ToLower().Replace(" ", "-"),
+						IsUsed = usedTagKeys.Contains(t.Key)
+					})
+					.ToList();
+
+				// Only include category if it has tags
+				if (categoryTags.Any())
+				{
+					// Calculate how many flexbox columns will be created
+					// max-height: 650px ~= 25 items per column
+					// Each flexbox column needs ~200px width
+					var totalTagCount = categoryTags.Count;
+
+					// 25 items per column
+					var flexColumns = (int)Math.Ceiling(totalTagCount / 25.0);
+
+					// Each grid column is ~1/6 of container width
+					var columnSpan = flexColumns;
+					columnSpan = Math.Max(1, Math.Min(columnSpan, 6)); // Min 1, max 6
+
+					categories.Add(new
+					{
+						Key = category.Key,
+						Title = category.Value<string>("categoryTitle") ?? category.Name,
+						Tags = categoryTags,
+						HasUsedTags = categoryTags.Any(t => t.IsUsed),
+						ColumnSpan = columnSpan,
+						TagCount = totalTagCount // rename from UsedTagCount if you want
+					});
+				}
+			}
+
+			// Only include section if it has categories with tags
+			if (categories.Any())
+			{
+				filterSections.Add(new
+				{
+					Key = section.Key,
+					Title = section.Value<string>("sectionTitle") ?? section.Name,
+					Categories = categories
+				});
+			}
+		}
+	}
 }
 
 <div class="filterWrap" id="filter-wrap">
-    <span class="loader-spinny" style="display: none;"></span>
-    <div class="feature-banner-shadow"></div>
+	<span class="loader-spinny" style="display: none;"></span>
+	<div class="feature-banner-shadow"></div>
 
-    <div class="searchTopBanner">
-        <div class="inner">
-            <h2>Advanced Search</h2>
-            <span class="totalResults">@total</span>
-            <h3>Results:</h3>
-            <div class="filterReset">
-                <a href="#" title="Reset Filter" id="resetFilter">Reset Filter</a>
-            </div>
-        </div>
-    </div>
+	<div class="searchTopBanner">
+		<div class="inner">
+			<h2>Advanced Search</h2>
+			<span class="totalResults">@total</span>
+			<h3>Results:</h3>
+			<div class="filterReset">
+				<a href="#" title="Reset Filter" id="resetFilter">Reset Filter</a>
+			</div>
+		</div>
+	</div>
 
-    <div class="instructions">
-        <p>Click on the <img src="/images/smallPlus.jpg" alt="">below to filter your results. Once done, scroll down to view.</p>
-    </div>
+	<div class="instructions">
+		<p>Click on the <img src="/images/smallPlus.jpg" alt="">below to filter your results. Once done, scroll down to view.</p>
+	</div>
 
-    <div class="accordionWrap">
-        @foreach (var filterSection in filterSections)
-        {
-            <div class="accordionPanel"
-                 data-id="@filterSection.Key">
-                <div class="accordionHeader">
-                    <div class="accordionToggle">
-                        <img src="/images/accordionToggle_Plus.jpg" alt="Accordion Toggle">
-                    </div>
-                    <div class="accordionTitle">
-                        @filterSection.Title
-                    </div>
-                </div>
-                <div class="accordionContent" style="display: none;">
-                    <div class="filterCategoriesGrid">
-                        @foreach (var category in filterSection.Categories)
-                        {
-                            <div class="filterType" 
-                                 data-id="@category.Key" 
-                                 style="grid-column: span @category.ColumnSpan;"
-                                 data-column-span="@category.ColumnSpan"
-                                 data-tag-count="@category.UsedTagCount">
-                                <h3>@category.Title</h3>
-                                <div class="theFilters theFilters-dynamic">
-                                    <ul class="no-split">
-                                        @foreach (var tag in category.Tags)
-                                        {
-                                            <li>
-                                                @if (tag.IsUsed)
-                                                {
-                                                    <span data-id="@tag.Key">
-                                                        <input 
-                                                            id="filter_@tag.Key.ToString("N")" 
-                                                            type="checkbox" 
-                                                            name="filter" 
-                                                            value="@tag.Key"
-                                                            data-tag-key="@tag.Key"
-                                                            class="filter-checkbox">
-                                                        <label for="filter_@tag.Key.ToString("N")">@tag.Name</label>
-                                                    </span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="aspNetDisabled disabled" data-id="@tag.Key">
-                                                        <input 
-                                                            id="filter_@tag.Key.ToString("N")" 
-                                                            type="checkbox" 
-                                                            name="filter" 
-                                                            disabled="disabled">
-                                                        <label for="filter_@tag.Key.ToString("N")">@tag.Name</label>
-                                                    </span>
-                                                }
-                                            </li>
-                                        }
-                                    </ul>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
-        }
-    </div>
+	<div class="accordionWrap">
+		@foreach (var filterSection in filterSections)
+		{
+			<div class="accordionPanel"
+				 data-id="@filterSection.Key">
+				<div class="accordionHeader">
+					<div class="accordionToggle">
+						<img src="/images/accordionToggle_Plus.jpg" alt="Accordion Toggle">
+					</div>
+					<div class="accordionTitle">
+						@filterSection.Title
+					</div>
+				</div>
+				<div class="accordionContent" style="display: none;">
+					<div class="filterCategoriesGrid">
+						@foreach (var category in filterSection.Categories)
+						{
+							<div class="filterType"
+								 data-id="@category.Key"
+								 style="grid-column: span @category.ColumnSpan;"
+								 data-column-span="@category.ColumnSpan"
+								 data-tag-count="@category.TagCount">
+								<h3>@category.Title</h3>
+								<div class="filter-tags-container">
+									@foreach (var tag in category.Tags)
+									{
+										<div class="filter-tag-item">
+											@if (tag.IsUsed)
+											{
+												<span data-id="@tag.Key">
+													<input id="filter_@tag.Key.ToString("N")"
+														   type="checkbox"
+														   name="filter"
+														   value="@tag.Key"
+														   data-tag-key="@tag.Key"
+														   class="filter-checkbox">
+													<label for="filter_@tag.Key.ToString("N")">@tag.Name</label>
+												</span>
+											}
+											else
+											{
+												<span class="aspNetDisabled disabled" data-id="@tag.Key">
+													<input id="filter_@tag.Key.ToString("N")"
+														   type="checkbox"
+														   name="filter"
+														   disabled="disabled">
+													<label for="filter_@tag.Key.ToString("N")">@tag.Name</label>
+												</span>
+											}
+										</div>
+									}
+								</div>
+							</div>
+						}
+					</div>
+				</div>
+			</div>
+		}
+	</div>
 </div>
 <div class="filterToggle">
-    <img src="/images/filterToggleBtn.png" alt="Filter Toggle">
+	<img src="/images/filterToggleBtn.png" alt="Filter Toggle">
 </div>
 
 <div id="content_0_controls_1_pnlContentWrapper" class="content-wrapper content-webinars content-has-breadcrumb">
 
-    <nav class="breadcrumb-nav">
+	<nav class="breadcrumb-nav">
 
-        <a title="Home" href="/">Home</a>
+		<a title="Home" href="/">Home</a>
 
-        <a title="Webinars" href="/webinars">Webinars</a>
+		<a title="Webinars" href="/webinars">Webinars</a>
 
-        <span>Veterinary Webinars</span>
+		<span>Veterinary Webinars</span>
 
-    </nav>
+	</nav>
 
 
 
-    <header class="content-header content-header-has-icon">
-        <div class="content-header-icon">
-            <img src="/images/icon_webinars.png?h=109&amp;la=en&amp;w=145" alt="Webinars" width="145" height="109">
-        </div>
+	<header class="content-header content-header-has-icon">
+		<div class="content-header-icon">
+			<img src="/images/icon_webinars.png?h=109&amp;la=en&amp;w=145" alt="Webinars" width="145" height="109">
+		</div>
 
-        <h1 class="content-header-h1">Veterinary Webinars</h1>
-        <div class="content-header-copy">
-        </div>
-    </header>
-    <section class="listing">
+		<h1 class="content-header-h1">Veterinary Webinars</h1>
+		<div class="content-header-copy">
+		</div>
+	</header>
+	<section class="listing">
 
-        @if (!allWebinars.Any())
-        {
-            <div class="listing-item">
-                <h2 class="listing-item-h2">No webinars found</h2>
-                <div class="listing-item-description">
-                    There aren’t any active webinars to show.
-                </div>
-            </div>
-        }
-        else
-        {
-            foreach (var w in allWebinars)
-            {
-                var title = w.Value<string>("title")?.Trim();
-                
-                // Get the tags from the Content Picker property
-                var tagNodes = w.Value<IEnumerable<IPublishedContent>>("tags");
-                
-                // Build data-tags attribute (comma-separated tag Keys for filtering)
-                var tagKeys = tagNodes != null && tagNodes.Any() 
-                    ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString())) 
-                    : "";
-                
-                <div class="listing-item webinar-item" data-tags="@tagKeys" data-webinar-key="@w.Key">
-                    <h2 class="listing-item-h2">@((string.IsNullOrWhiteSpace(title) ? w.Name : title))</h2>
+		@if (!allWebinars.Any())
+		{
+			<div class="listing-item">
+				<h2 class="listing-item-h2">No webinars found</h2>
+				<div class="listing-item-description">
+					There aren’t any active webinars to show.
+				</div>
+			</div>
+		}
+		else
+		{
+			foreach (var w in allWebinars)
+			{
+				var title = w.Value<string>("title")?.Trim();
 
-                    <div class="listing-item-description">
-                        @Html.Raw(Summary(w) ?? "")
-                    </div>
+				// Get the tags from the Content Picker property
+				var tagNodes = w.Value<IEnumerable<IPublishedContent>>("tags");
 
-                    <dl class="listing-item-date">
-                        <dt>Length:</dt>
-                        <dd>@DisplayLength(w)</dd>
-                        <dt>Date</dt>
-                        <dd>@DisplayDate(w)</dd>
-                    </dl>
+				// Build data-tags attribute (comma-separated tag Keys for filtering)
+				var tagKeys = tagNodes != null && tagNodes.Any()
+				? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString()))
+				: "";
 
-                    <dl class="listing-item-price">
-                        <dt>Price:</dt>
-                        <dd>29.95</dd>
-                    </dl>
+				<div class="listing-item webinar-item" data-tags="@tagKeys" data-webinar-key="@w.Key">
+					<h2 class="listing-item-h2">@((string.IsNullOrWhiteSpace(title) ? w.Name : title))</h2>
 
-                    @if (tagNodes != null && tagNodes.Any())
-                    {
-                        // Group tags by their parent category KEY (not object reference)
-                        var tagsByCategory = tagNodes
-                            .Where(tag => tag != null && tag.Parent != null)
-                            .GroupBy(tag => tag.Parent.Key)
-                            .Select(g => new {
-                                CategoryKey = g.Key,
-                                Category = g.First().Parent, // Get the actual parent node
-                                Tags = g.OrderBy(t => t.SortOrder).ToList()
-                            })
-                            // Sort by the category's full path in Umbraco (preserves hierarchy order)
-                        .OrderBy(g => g.Category?.Parent?.SortOrder ?? 0)  // Section order
-                        .ThenBy(g => g.Category?.SortOrder ?? 0)            // Category order
-                        .ToList();
+					<div class="listing-item-description">
+						@Html.Raw(Summary(w) ?? "")
+					</div>
 
-                        <div class="tags">
-                            <div class="tagHead">
-                                Tags:
-                            </div>
-                            <div class="theTags">
-                                @{
-                                    var isFirst = true;
-                                    foreach (var categoryGroup in tagsByCategory)
-                                    {
-                                        var category = categoryGroup.Category;
-                                        var tagsInCategory = categoryGroup.Tags;
+					<dl class="listing-item-date">
+						<dt>Length:</dt>
+						<dd>@DisplayLength(w)</dd>
+						<dt>Date</dt>
+						<dd>@DisplayDate(w)</dd>
+					</dl>
 
-                                        // Add comma separator between categories
-                                        if (!isFirst)
-                                        {
-                                            @:, 
-                                        }
-                                        isFirst = false;
+					<dl class="listing-item-price">
+						<dt>Price:</dt>
+						<dd>29.95</dd>
+					</dl>
 
-                                        // Display category title as span with class="typeTag"
-                                        var categoryTitle = category?.Value<string>("categoryTitle") ?? category?.Name ?? "";
-                                        <span class="typeTag">@categoryTitle</span>
-                                        @:, 
+					@if (tagNodes != null && tagNodes.Any())
+					{
+						// Group tags by their parent category KEY (not object reference)
+						var tagsByCategory = tagNodes
+						.Where(tag => tag != null && tag.Parent != null)
+						.GroupBy(tag => tag.Parent.Key)
+						.Select(g => new
+						{
+							CategoryKey = g.Key,
+							Category = g.First().Parent, // Get the actual parent node
+							Tags = g.OrderBy(t => t.SortOrder).ToList()
+						})
+						// Sort by the category's full path in Umbraco (preserves hierarchy order)
+						.OrderBy(g => g.Category?.Parent?.SortOrder ?? 0)  // Section order
+						.ThenBy(g => g.Category?.SortOrder ?? 0)            // Category order
+						.ToList();
 
-                                        // Display all tags in this category, comma-separated
-                                        var tagCount = tagsInCategory.Count;
-                                        for (int i = 0; i < tagCount; i++)
-                                        {
-                                            var tag = tagsInCategory[i];
-                                            var tagName = tag.Value<string>("tagName") ?? tag.Name;
-                                            
-                                            <span data-tag-key="@tag.Key">@tagName</span>
-                                            
-                                            if (i < tagCount - 1)
-                                            {
-                                                @:, 
-                                            }
-                                        }
-                                    }
-                                }
-                            </div>
-                        </div>
-                    }
+						<div class="tags">
+							<div class="tagHead">
+								Tags:
+							</div>
+							<div class="theTags">
+								@{
+									var isFirst = true;
+									foreach (var categoryGroup in tagsByCategory)
+									{
+										var category = categoryGroup.Category;
+										var tagsInCategory = categoryGroup.Tags;
 
-                    <ul class="listing-item-btns">
-                        <li class="listing-item-btn">
-                            <a class="btn btn-green btn-218" href="@w.Url()">Learn More</a>
-                        </li>
-                    </ul>
-                </div>
-            }
-        }
-        
-        
+										// Add comma separator between categories
+										if (!isFirst)
+										{
+											@:,
+										}
+										isFirst = false;
 
-    </section>
-    <article class="content-article"></article>
+										// Display category title as span with class="typeTag"
+										var categoryTitle = category?.Value<string>("categoryTitle") ?? category?.Name ?? "";
+										<span class="typeTag">@categoryTitle</span>
+										@:,
+
+										// Display all tags in this category, comma-separated
+										var tagCount = tagsInCategory.Count;
+										for (int i = 0; i < tagCount; i++)
+										{
+											var tag = tagsInCategory[i];
+											var tagName = tag.Value<string>("tagName") ?? tag.Name;
+
+											<span data-tag-key="@tag.Key">@tagName</span>
+
+											if (i < tagCount - 1)
+											{
+												@:,
+											}
+										}
+									}
+								}
+							</div>
+						</div>
+					}
+
+					<ul class="listing-item-btns">
+						<li class="listing-item-btn">
+							<a class="btn btn-green btn-218" href="@w.Url()">Learn More</a>
+						</li>
+					</ul>
+				</div>
+			}
+		}
+
+
+
+	</section>
+	<article class="content-article"></article>
 
 </div>
 
 <script>
-(function() {
-    'use strict';
-    
-    // CRITICAL: Fix main.js interference - remove col2 splits and restore CSS columns
-    function fixFilterColumns() {
-        document.querySelectorAll('.theFilters-dynamic').forEach(function(filterDiv) {
-            // Find all ul.col2 created by main.js
-            const col2Elements = filterDiv.querySelectorAll('ul.col2');
-            
-            if (col2Elements.length > 0) {
-                // Get the first ul (original)
-                const mainUl = filterDiv.querySelector('ul:not(.col2)');
-                
-                if (mainUl) {
-                    // Move all items from col2 back to main ul
-                    col2Elements.forEach(function(col2) {
-                        const items = col2.querySelectorAll('li');
-                        items.forEach(function(item) {
-                            mainUl.appendChild(item);
-                        });
-                        // Remove the col2 ul
-                        col2.remove();
-                    });
-                }
-            }
-        });
-    }
-    
-    // Run immediately
-    fixFilterColumns();
-    
-    // Run after a delay to catch main.js changes
-    setTimeout(fixFilterColumns, 100);
-    setTimeout(fixFilterColumns, 500);
-    
-    // Filter state
-    let selectedFilters = new Set();
-    let allWebinars = [];
-    let filteredWebinars = [];
-    
-    // DOM elements
-    const filterCheckboxes = document.querySelectorAll('.filter-checkbox');
-    const webinarItems = document.querySelectorAll('.webinar-item');
-    const totalResultsElement = document.querySelector('.totalResults');
-    const resetButton = document.getElementById('resetFilter');
-    
-    // Initialize webinar data
-    webinarItems.forEach(item => {
-        const tags = item.dataset.tags ? item.dataset.tags.split(',').filter(t => t.trim()) : [];
-        allWebinars.push({
-            element: item,
-            tags: tags,
-            tagSet: new Set(tags)
-        });
-    });
-    
-    filteredWebinars = [...allWebinars];
-    
-    // Filter functionality
-    function applyFilters() {
-        if (selectedFilters.size === 0) {
-            // No filters selected - show all
-            filteredWebinars = [...allWebinars];
-            allWebinars.forEach(w => w.element.style.display = 'block');
-        } else {
-            // Show only webinars that have ALL selected tags (AND logic)
-            filteredWebinars = allWebinars.filter(webinar => {
-                // Check if webinar has ALL selected filters
-                for (let filterKey of selectedFilters) {
-                    if (!webinar.tagSet.has(filterKey)) {
-                        return false; // Missing one of the selected filters
-                    }
-                }
-                return true;
-            });
-            
-            // Update display
-            allWebinars.forEach(webinar => {
-                webinar.element.style.display = filteredWebinars.includes(webinar) ? 'block' : 'none';
-            });
-        }
-        
-        // Update count
-        updateResultCount();
-    }
-    
-    function updateResultCount() {
-        if (totalResultsElement) {
-            totalResultsElement.textContent = filteredWebinars.length;
-        }
-    }
-    
-    // Highlight selected filter tags in webinar listings
-    function highlightSelectedTags() {
-        // Remove all existing highlights
-        document.querySelectorAll('.theTags span[data-tag-key].highlight').forEach(el => {
-            el.classList.remove('highlight');
-        });
-        
-        // If no filters selected, nothing to highlight
-        if (selectedFilters.size === 0) return;
-        
-        // Highlight tags by matching data-tag-key
-        selectedFilters.forEach(filterKey => {
-            document.querySelectorAll(`.theTags span[data-tag-key="${filterKey}"]`).forEach(span => {
-                span.classList.add('highlight');
-            });
-        });
-    }
-    
-    // Checkbox change handler
-    filterCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const tagKey = this.value;
-            
-            if (this.checked) {
-                selectedFilters.add(tagKey);
-            } else {
-                selectedFilters.delete(tagKey);
-            }
-            
-            applyFilters();
-            highlightSelectedTags();
-        });
-    });
-    
-    // Reset button
-    if (resetButton) {
-        resetButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            // Uncheck all checkboxes
-            filterCheckboxes.forEach(cb => cb.checked = false);
-            
-            // Clear selected filters
-            selectedFilters.clear();
-            
-            // Show all webinars
-            applyFilters();
-            highlightSelectedTags(); // Remove highlights
-            
-            // Collapse all accordions
-            document.querySelectorAll('.accordionContent').forEach(content => {
-                content.style.display = 'none';
-            });
-            document.querySelectorAll('.accordionToggle img').forEach(toggle => {
-                toggle.src = '/images/accordionToggle_Plus.jpg';
-            });
-        });
-    }
-    
-    // Initialize count
-    updateResultCount();
-})();
+	(function() {
+		'use strict';
+
+		// Filter state
+		let selectedFilters = new Set();
+		let allWebinars = [];
+		let filteredWebinars = [];
+
+		// DOM elements
+		const filterCheckboxes = document.querySelectorAll('.filter-checkbox');
+		const webinarItems = document.querySelectorAll('.webinar-item');
+		const totalResultsElement = document.querySelector('.totalResults');
+		const resetButton = document.getElementById('resetFilter');
+
+		// Initialize webinar data
+		webinarItems.forEach(item => {
+			const tags = item.dataset.tags ? item.dataset.tags.split(',').filter(t => t.trim()) : [];
+			allWebinars.push({
+				element: item,
+				tags: tags,
+				tagSet: new Set(tags)
+			});
+		});
+
+		filteredWebinars = [...allWebinars];
+
+		// Filter functionality
+		function applyFilters() {
+			if (selectedFilters.size === 0) {
+				// No filters selected - show all
+				filteredWebinars = [...allWebinars];
+				allWebinars.forEach(w => w.element.style.display = 'block');
+			} else {
+				// Show only webinars that have ALL selected tags (AND logic)
+				filteredWebinars = allWebinars.filter(webinar => {
+					// Check if webinar has ALL selected filters
+					for (let filterKey of selectedFilters) {
+						if (!webinar.tagSet.has(filterKey)) {
+							return false; // Missing one of the selected filters
+						}
+					}
+					return true;
+				});
+
+				// Update display
+				allWebinars.forEach(webinar => {
+					webinar.element.style.display = filteredWebinars.includes(webinar) ? 'block' : 'none';
+				});
+			}
+
+			// Update count
+			updateResultCount();
+		}
+
+		function updateResultCount() {
+			if (totalResultsElement) {
+				totalResultsElement.textContent = filteredWebinars.length;
+			}
+		}
+
+		// Highlight selected filter tags in webinar listings
+		function highlightSelectedTags() {
+			// Remove all existing highlights
+			document.querySelectorAll('.theTags span[data-tag-key].highlight').forEach(el => {
+				el.classList.remove('highlight');
+			});
+
+			// If no filters selected, nothing to highlight
+			if (selectedFilters.size === 0) return;
+
+			// Highlight tags by matching data-tag-key
+			selectedFilters.forEach(filterKey => {
+				document.querySelectorAll(`.theTags span[data-tag-key="${filterKey}"]`).forEach(span => {
+					span.classList.add('highlight');
+				});
+			});
+		}
+
+		// Checkbox change handler
+		filterCheckboxes.forEach(checkbox => {
+			checkbox.addEventListener('change', function() {
+				const tagKey = this.value;
+
+				if (this.checked) {
+					selectedFilters.add(tagKey);
+				} else {
+					selectedFilters.delete(tagKey);
+				}
+
+				applyFilters();
+				highlightSelectedTags();
+			});
+		});
+
+		// Reset button
+		if (resetButton) {
+			resetButton.addEventListener('click', function(e) {
+				e.preventDefault();
+
+				// Uncheck all checkboxes
+				filterCheckboxes.forEach(cb => cb.checked = false);
+
+				// Clear selected filters
+				selectedFilters.clear();
+
+				// Show all webinars
+				applyFilters();
+				highlightSelectedTags(); // Remove highlights
+
+				// Collapse all accordions
+				document.querySelectorAll('.accordionContent').forEach(content => {
+					content.style.display = 'none';
+				});
+				document.querySelectorAll('.accordionToggle img').forEach(toggle => {
+					toggle.src = '/images/accordionToggle_Plus.jpg';
+				});
+			});
+		}
+
+		// Initialize count
+		updateResultCount();
+	})();
 </script>
 
 <style>
-/* Filter Categories Grid - 6 columns on desktop */
-.filterCategoriesGrid {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 20px;
-    padding: 20px;
-}
+	/* Filter Categories Grid - dense packing ensures multi-column categories push others down */
+	.filterCategoriesGrid {
+		display: grid;
+		grid-template-columns: repeat(6, minmax(180px, 1fr));
+		grid-auto-flow: row dense;
+		gap: 20px;
+		padding: 20px;
+		align-items: start;
+	}
 
-/* Tablet: 3 columns */
-@@media (max-width: 1200px) {
-    .filterCategoriesGrid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
+	/* Tablet: 3 columns */
+	@@media (max-width: 1200px) {
+		.filterCategoriesGrid {
+			grid-template-columns: repeat(3, 1fr);
+		}
+		/* Limit span on smaller screens */
+		.filterType[data-column-span="3"],
+		.filterType[data-column-span="4"],
+		.filterType[data-column-span="5"],
+		.filterType[data-column-span="6"] {
+			grid-column: span 3 !important;
+		}
+	}
 
-/* Mobile: 2 columns */
-@@media (max-width: 768px) {
-    .filterCategoriesGrid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
+	/* Mobile: 2 columns */
+	@@media (max-width: 768px) {
+		.filterCategoriesGrid {
+			grid-template-columns: repeat(2, 1fr);
+		}
 
-/* Very small mobile: 1 column */
-@@media (max-width: 480px) {
-    .filterCategoriesGrid {
-        grid-template-columns: 1fr;
-    }
-}
+		.filterType {
+			grid-column: span 2 !important;
+		}
 
-/* Filter Type (Category) styling */
-.filterType {
-    display: flex;
-    flex-direction: column;
-    min-width: 0; /* Allow grid items to shrink below content size */
-    break-inside: avoid; /* Keep category together when possible */
-}
+		.filter-tags-container {
+			max-height: none !important;
+		}
+	}
 
-/* Multi-column layout for tag lists - wraps into columns automatically */
-.theFilters-dynamic ul {
-    list-style: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    -webkit-column-width: 180px !important;
-    -moz-column-width: 180px !important;
-    column-width: 180px !important;
-    -webkit-column-gap: 15px !important;
-    -moz-column-gap: 15px !important;
-    column-gap: 15px !important;
-    max-height: none !important; /* Let it wrap naturally */
-    height: auto !important;
-    display: block !important; /* Override any flex */
-}
+	/* Very small mobile: 1 column */
+	@@media (max-width: 480px) {
+		.filterCategoriesGrid {
+			grid-template-columns: 1fr;
+		}
 
-/* Prevent list items from breaking across columns */
-.theFilters-dynamic li {
-    margin: 0 0 6px 0 !important;
-    padding: 0 !important;
-    font-size: 13px !important;
-    line-height: 1.4 !important;
-    word-wrap: break-word !important;
-    -webkit-column-break-inside: avoid !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-    display: block !important;
-}
+		.filterType {
+			grid-column: span 1 !important;
+		}
+	}
 
-.theFilters-dynamic input[type="checkbox"] {
-    margin-right: 6px;
-    vertical-align: middle;
-}
+	/* Filter Type (Category) styling */
+	.filterType {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		break-inside: avoid;
+	}
 
-.theFilters-dynamic label {
-    cursor: pointer;
-    vertical-align: middle;
-    display: inline;
-}
 
-/* Disabled filter styling */
-.theFilters-dynamic .aspNetDisabled.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
+		.filterType input[type="checkbox"] {
+			width: 10px;
+			height: 10px;
+			-webkit-appearance: checkbox;
+		}
 
-.theFilters-dynamic .aspNetDisabled.disabled label {
-    cursor: not-allowed;
-}
+	/* Flexbox column container - wraps tags into columns */
+	.filter-tags-container {
+		display: flex;
+		flex-direction: column;
+		flex-wrap: wrap;
+		max-height: 650px; /* ~25 items per column */
+		gap: 6px;
+		align-content: flex-start;
+	}
 
-/* Highlighted tag in webinar listing */
-.webinar-item .theTags span.highlight {
-    background-color: #ffeb3b;
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-weight: bold;
-}
+	/* Each individual tag item */
+	.filter-tag-item {
+		display: block;
+		width: 180px; /* Fixed width for predictable columns */
+		padding-right: 10px;
+		font-size: 13px;
+		line-height: 1.4;
+		box-sizing: border-box;
+	}
+
+		.filter-tag-item input[type="checkbox"] {
+			margin-right: 6px;
+			vertical-align: middle;
+			width: 13px;
+			height: 13px;
+			opacity: 1 !important;
+			position: relative !important;
+			display: inline-block !important;
+		}
+
+		.filter-tag-item label {
+			cursor: pointer;
+			vertical-align: middle;
+			display: inline;
+			word-wrap: break-word;
+		}
+
+		/* Disabled filter styling */
+		.filter-tag-item .aspNetDisabled.disabled {
+			opacity: 0.5;
+		}
+
+			.filter-tag-item .aspNetDisabled.disabled label {
+				cursor: not-allowed;
+			}
+
+			.filter-tag-item .aspNetDisabled.disabled input[type="checkbox"] {
+				cursor: not-allowed;
+				opacity: 0.5 !important;
+			}
+
+	/* Highlighted tag in webinar listing */
+	.webinar-item .theTags span.highlight {
+		background-color: #ffeb3b;
+		padding: 2px 4px;
+		border-radius: 3px;
+		font-weight: bold;
+	}
 </style>
