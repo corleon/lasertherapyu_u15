@@ -98,11 +98,19 @@
                 // Only include category if it has tags
                 if (categoryTags.Any())
                 {
+                    // Calculate how many grid columns this category should span
+                    // Based on tag count: 1-25 tags = 1 column, 26-50 = 2 columns, 51-75 = 3 columns, etc.
+                    var usedTagCount = categoryTags.Count(t => t.IsUsed);
+                    var columnSpan = (int)Math.Ceiling(usedTagCount / 25.0);
+                    columnSpan = Math.Max(1, Math.Min(columnSpan, 6)); // Min 1, max 6 columns
+                    
                     categories.Add(new {
                         Key = category.Key,
                         Title = category.Value<string>("categoryTitle") ?? category.Name,
                         Tags = categoryTags,
-                        HasUsedTags = categoryTags.Any(t => t.IsUsed)
+                        HasUsedTags = categoryTags.Any(t => t.IsUsed),
+                        ColumnSpan = columnSpan,
+                        UsedTagCount = usedTagCount
                     });
                 }
             }
@@ -156,10 +164,14 @@
                     <div class="filterCategoriesGrid">
                         @foreach (var category in filterSection.Categories)
                         {
-                            <div class="filterType" data-id="@category.Key">
+                            <div class="filterType" 
+                                 data-id="@category.Key" 
+                                 style="grid-column: span @category.ColumnSpan;"
+                                 data-column-span="@category.ColumnSpan"
+                                 data-tag-count="@category.UsedTagCount">
                                 <h3>@category.Title</h3>
-                                <div class="theFilters">
-                                    <ul>
+                                <div class="theFilters theFilters-dynamic">
+                                    <ul class="no-split">
                                         @foreach (var tag in category.Tags)
                                         {
                                             <li>
@@ -317,7 +329,7 @@
                                             var tag = tagsInCategory[i];
                                             var tagName = tag.Value<string>("tagName") ?? tag.Name;
                                             
-                                            @tagName
+                                            <span data-tag-key="@tag.Key">@tagName</span>
                                             
                                             if (i < tagCount - 1)
                                             {
@@ -349,6 +361,38 @@
 <script>
 (function() {
     'use strict';
+    
+    // CRITICAL: Fix main.js interference - remove col2 splits and restore CSS columns
+    function fixFilterColumns() {
+        document.querySelectorAll('.theFilters-dynamic').forEach(function(filterDiv) {
+            // Find all ul.col2 created by main.js
+            const col2Elements = filterDiv.querySelectorAll('ul.col2');
+            
+            if (col2Elements.length > 0) {
+                // Get the first ul (original)
+                const mainUl = filterDiv.querySelector('ul:not(.col2)');
+                
+                if (mainUl) {
+                    // Move all items from col2 back to main ul
+                    col2Elements.forEach(function(col2) {
+                        const items = col2.querySelectorAll('li');
+                        items.forEach(function(item) {
+                            mainUl.appendChild(item);
+                        });
+                        // Remove the col2 ul
+                        col2.remove();
+                    });
+                }
+            }
+        });
+    }
+    
+    // Run immediately
+    fixFilterColumns();
+    
+    // Run after a delay to catch main.js changes
+    setTimeout(fixFilterColumns, 100);
+    setTimeout(fixFilterColumns, 500);
     
     // Filter state
     let selectedFilters = new Set();
@@ -407,6 +451,24 @@
         }
     }
     
+    // Highlight selected filter tags in webinar listings
+    function highlightSelectedTags() {
+        // Remove all existing highlights
+        document.querySelectorAll('.theTags span[data-tag-key].highlight').forEach(el => {
+            el.classList.remove('highlight');
+        });
+        
+        // If no filters selected, nothing to highlight
+        if (selectedFilters.size === 0) return;
+        
+        // Highlight tags by matching data-tag-key
+        selectedFilters.forEach(filterKey => {
+            document.querySelectorAll(`.theTags span[data-tag-key="${filterKey}"]`).forEach(span => {
+                span.classList.add('highlight');
+            });
+        });
+    }
+    
     // Checkbox change handler
     filterCheckboxes.forEach(checkbox => {
         checkbox.addEventListener('change', function() {
@@ -419,6 +481,7 @@
             }
             
             applyFilters();
+            highlightSelectedTags();
         });
     });
     
@@ -435,6 +498,7 @@
             
             // Show all webinars
             applyFilters();
+            highlightSelectedTags(); // Remove highlights
             
             // Collapse all accordions
             document.querySelectorAll('.accordionContent').forEach(content => {
@@ -452,18 +516,18 @@
 </script>
 
 <style>
-/* Filter Categories Grid - 8 columns on desktop */
+/* Filter Categories Grid - 6 columns on desktop */
 .filterCategoriesGrid {
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 20px;
     padding: 20px;
 }
 
-/* Tablet: 4 columns */
+/* Tablet: 3 columns */
 @@media (max-width: 1200px) {
     .filterCategoriesGrid {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(3, 1fr);
     }
 }
 
@@ -489,55 +553,61 @@
     break-inside: avoid; /* Keep category together when possible */
 }
 
-.filterType h3 {
-    font-size: 14px;
-    font-weight: bold;
-    margin: 0 0 10px 0;
-    padding: 0;
-    word-wrap: break-word;
-}
-
-/* Multi-column layout for tag lists with max 25 items per column */
-.filterType .theFilters ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    column-count: auto;
-    column-width: 180px; /* Adjust based on your tag name lengths */
-    column-gap: 15px;
-    max-height: calc(25 * 29px); /* 25 items * (line height + margin) */
-    overflow: visible;
+/* Multi-column layout for tag lists - wraps into columns automatically */
+.theFilters-dynamic ul {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-column-width: 180px !important;
+    -moz-column-width: 180px !important;
+    column-width: 180px !important;
+    -webkit-column-gap: 15px !important;
+    -moz-column-gap: 15px !important;
+    column-gap: 15px !important;
+    max-height: none !important; /* Let it wrap naturally */
+    height: auto !important;
+    display: block !important; /* Override any flex */
 }
 
 /* Prevent list items from breaking across columns */
-.filterType .theFilters li {
-    margin: 0 0 8px 0;
-    padding: 0;
-    font-size: 13px;
-    word-wrap: break-word;
-    break-inside: avoid;
-    page-break-inside: avoid;
-    -webkit-column-break-inside: avoid;
+.theFilters-dynamic li {
+    margin: 0 0 6px 0 !important;
+    padding: 0 !important;
+    font-size: 13px !important;
+    line-height: 1.4 !important;
+    word-wrap: break-word !important;
+    -webkit-column-break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    display: block !important;
 }
 
-.filterType .theFilters input[type="checkbox"] {
+.theFilters-dynamic input[type="checkbox"] {
     margin-right: 6px;
     vertical-align: middle;
 }
 
-.filterType .theFilters label {
+.theFilters-dynamic label {
     cursor: pointer;
     vertical-align: middle;
     display: inline;
 }
 
 /* Disabled filter styling */
-.filterType .theFilters .aspNetDisabled.disabled {
+.theFilters-dynamic .aspNetDisabled.disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-.filterType .theFilters .aspNetDisabled.disabled label {
+.theFilters-dynamic .aspNetDisabled.disabled label {
     cursor: not-allowed;
+}
+
+/* Highlighted tag in webinar listing */
+.webinar-item .theTags span.highlight {
+    background-color: #ffeb3b;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-weight: bold;
 }
 </style>
