@@ -32,7 +32,8 @@
     string Summary(IPublishedContent c)
     {
         var html = c?.Value<string>("shortDescription") ?? "";
-        return html.StripHtml().Trim();
+        var text = html.StripHtml().Trim();
+        return System.Net.WebUtility.HtmlDecode(text);
     }
 
     // Price display logic
@@ -47,6 +48,18 @@
         displayPrice = price;
     }
 }
+
+<style>
+    .protocol-detail .theProductPrice {
+        display: block;
+        margin: 15px 0;
+    }
+    
+    .protocol-detail .product-info-btns {
+        display: block;
+        margin-top: 15px;
+    }
+</style>
 
 <div class="content-wrapper content-protocols content-has-breadcrumb">
 
@@ -85,7 +98,6 @@
             <div class="theProductPrice">
                 <span class="heading">Price: </span>$@displayPrice
             </div>
-            <br>
         }
 
         <div class="product-info-btns">
