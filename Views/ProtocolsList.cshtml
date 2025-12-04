@@ -1,0 +1,527 @@
+﻿@using System.Text.RegularExpressions
+@using Umbraco.Cms.Web.Common.PublishedModels;
+@using Umbraco.Extensions
+@using Umbraco.Cms.Core.Models.PublishedContent
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    Layout = "master.cshtml";
+
+    // Get all protocols under this list page
+    var allProtocols = Model!.Children()
+        .Where(x => x.IsPublished() && x.ContentType.Alias == "protocol")
+        .OrderBy(x => x.Value<string>("headline") ?? x.Name)
+        .ToList();
+
+    var total = allProtocols.Count;
+
+    string Summary(IPublishedContent c)
+    {
+        var html = c?.Value<string>("shortDescription") ?? "";
+        return html.Trim();
+    }
+
+    string GetPrice(IPublishedContent c)
+    {
+        var salePrice = c?.Value<string>("salePrice") ?? "";
+        var price = c?.Value<string>("price") ?? "";
+        
+        if (!string.IsNullOrWhiteSpace(salePrice) && salePrice != "0" && salePrice != "0.00")
+            return salePrice;
+        return price;
+    }
+
+    // ============================================================================
+    // DYNAMIC FILTER SYSTEM (same as webinar list)
+    // ============================================================================
+
+    var filtersRoot = Umbraco.ContentAtRoot()
+        .DescendantsOrSelfOfType("filterRoot")
+        .FirstOrDefault();
+
+    // Collect all tag Keys used in current protocols
+    var usedTagKeys = new HashSet<Guid>();
+    foreach (var protocol in allProtocols)
+    {
+        var tags = protocol.Value<IEnumerable<IPublishedContent>>("tags");
+        if (tags != null)
+        {
+            foreach (var tag in tags.Where(t => t != null))
+            {
+                usedTagKeys.Add(tag.Key);
+            }
+        }
+    }
+
+    // Build filter structure
+    var filterSections = new List<dynamic>();
+    if (filtersRoot != null)
+    {
+        var sections = filtersRoot.Children()
+            .Where(s => s.ContentType.Alias == "filterSection" && s.IsPublished())
+            .OrderBy(s => s.SortOrder)
+            .ToList();
+
+        foreach (var section in sections)
+        {
+            var categories = new List<dynamic>();
+
+            var sectionCategories = section.Children()
+                .Where(c => c.ContentType.Alias == "filterCategory" && c.IsPublished())
+                .OrderBy(c => c.SortOrder)
+                .ToList();
+
+            foreach (var category in sectionCategories)
+            {
+                var categoryTags = category.Children()
+                    .Where(t => t.ContentType.Alias == "filterTag" && t.IsPublished())
+                    .OrderBy(t => t.SortOrder)
+                    .Select(t => new
+                    {
+                        Key = t.Key,
+                        Name = t.Value<string>("tagName") ?? t.Name,
+                        Alias = t.GetProperty("tagKey")?.GetValue() as string ?? t.Name.ToLower().Replace(" ", "-"),
+                        IsUsed = usedTagKeys.Contains(t.Key)
+                    })
+                    .ToList();
+
+                if (categoryTags.Any())
+                {
+                    var totalTagCount = categoryTags.Count;
+                    var flexColumns = (int)Math.Ceiling(totalTagCount / 25.0);
+                    var columnSpan = Math.Max(1, Math.Min(flexColumns, 6));
+
+                    categories.Add(new
+                    {
+                        Key = category.Key,
+                        Title = category.Value<string>("categoryTitle") ?? category.Name,
+                        Tags = categoryTags,
+                        HasUsedTags = categoryTags.Any(t => t.IsUsed),
+                        ColumnSpan = columnSpan,
+                        TagCount = totalTagCount
+                    });
+                }
+            }
+
+            if (categories.Any())
+            {
+                filterSections.Add(new
+                {
+                    Key = section.Key,
+                    Title = section.Value<string>("sectionTitle") ?? section.Name,
+                    Categories = categories
+                });
+            }
+        }
+    }
+}
+
+<div class="filterWrap" id="filter-wrap">
+    <span class="loader-spinny" style="display: none;"></span>
+    <div class="feature-banner-shadow"></div>
+
+    <div class="searchTopBanner">
+        <div class="inner">
+            <h2>Advanced Search</h2>
+            <span class="totalResults">@total</span>
+            <h3>Results:</h3>
+            <div class="filterReset">
+                <a href="#" title="Reset Filter" id="resetFilter">Reset Filter</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <p>Click on the <img src="/images/smallPlus.jpg" alt="">below to filter your results. Once done, scroll down to view.</p>
+    </div>
+
+    <div class="accordionWrap">
+        @foreach (var filterSection in filterSections)
+        {
+            <div class="accordionPanel" data-id="@filterSection.Key">
+                <div class="accordionHeader">
+                    <div class="accordionToggle">
+                        <img src="/images/accordionToggle_Plus.jpg" alt="Accordion Toggle">
+                    </div>
+                    <div class="accordionTitle">
+                        @filterSection.Title
+                    </div>
+                </div>
+                <div class="accordionContent" style="display: none;">
+                    <div class="filterCategoriesGrid">
+                        @foreach (var category in filterSection.Categories)
+                        {
+                            <div class="filterType"
+                                 data-id="@category.Key"
+                                 style="grid-column: span @category.ColumnSpan;"
+                                 data-column-span="@category.ColumnSpan"
+                                 data-tag-count="@category.TagCount">
+                                <h3>@category.Title</h3>
+                                <div class="filter-tags-container">
+                                    @foreach (var tag in category.Tags)
+                                    {
+                                        <div class="filter-tag-item">
+                                            @if (tag.IsUsed)
+                                            {
+                                                <span data-id="@tag.Key">
+                                                    <input id="filter_@tag.Key.ToString("N")"
+                                                           type="checkbox"
+                                                           name="filter"
+                                                           value="@tag.Key"
+                                                           data-tag-key="@tag.Key"
+                                                           class="filter-checkbox">
+                                                    <label for="filter_@tag.Key.ToString("N")">@tag.Name</label>
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="aspNetDisabled disabled" data-id="@tag.Key">
+                                                    <input id="filter_@tag.Key.ToString("N")"
+                                                           type="checkbox"
+                                                           name="filter"
+                                                           disabled="disabled">
+                                                    <label for="filter_@tag.Key.ToString("N")">@tag.Name</label>
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+<div class="filterToggle">
+    <img src="/images/filterToggleBtn.png" alt="Filter Toggle">
+</div>
+
+<div class="content-wrapper content-protocols content-has-breadcrumb">
+
+    <nav class="breadcrumb-nav">
+        <a title="Home" href="/">Home</a>
+        <span>Protocols</span>
+    </nav>
+
+    <header class="content-header content-header-has-icon">
+        <div class="content-header-icon">
+            <img src="/images/icon_protocols.png?h=118&amp;la=en&amp;w=100" alt="Protocols" width="100" height="118">
+        </div>
+        <h1 class="content-header-h1">Protocols</h1>
+    </header>
+
+    <section class="listing">
+        @if (!allProtocols.Any())
+        {
+            <div class="listing-item">
+                <h2 class="listing-item-h2">No protocols found</h2>
+                <div class="listing-item-description">
+                    There aren't any protocols to show.
+                </div>
+            </div>
+        }
+        else
+        {
+            foreach (var p in allProtocols)
+            {
+                var title = p.Value<string>("headline")?.Trim();
+                if (string.IsNullOrWhiteSpace(title)) title = p.Name;
+
+                var tagNodes = p.Value<IEnumerable<IPublishedContent>>("tags");
+                var tagKeys = tagNodes != null && tagNodes.Any()
+                    ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString()))
+                    : "";
+
+                var priceDisplay = GetPrice(p);
+
+                <div class="listing-item protocol-item" data-tags="@tagKeys" data-protocol-key="@p.Key">
+                    <h2 class="listing-item-h2">@title</h2>
+
+                    <div class="listing-item-description">
+                        @Html.Raw(Summary(p) ?? "")
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(priceDisplay))
+                    {
+                        <dl class="listing-item-price">
+                            <dt>Price:</dt>
+                            <dd>$@priceDisplay</dd>
+                        </dl>
+                    }
+
+                    @if (tagNodes != null && tagNodes.Any())
+                    {
+                        var tagsByCategory = tagNodes
+                            .Where(tag => tag != null && tag.Parent != null)
+                            .GroupBy(tag => tag.Parent.Key)
+                            .Select(g => new
+                            {
+                                CategoryKey = g.Key,
+                                Category = g.First().Parent,
+                                Tags = g.ToList()
+                            })
+                            .ToList();
+
+                        <div class="theTagsWrap">
+                            <div class="theTags">
+                                @{
+                                    var isFirst = true;
+                                    foreach (var categoryGroup in tagsByCategory)
+                                    {
+                                        var category = categoryGroup.Category;
+                                        var tagsInCategory = categoryGroup.Tags;
+
+                                        if (!isFirst)
+                                        {
+                                            @:,
+                                        }
+                                        isFirst = false;
+
+                                        var categoryTitle = category?.Value<string>("categoryTitle") ?? category?.Name ?? "";
+                                        <span class="typeTag">@categoryTitle</span>
+                                        @:,
+
+                                        var tagCount = tagsInCategory.Count;
+                                        for (int i = 0; i < tagCount; i++)
+                                        {
+                                            var tag = tagsInCategory[i];
+                                            var tagName = tag.Value<string>("tagName") ?? tag.Name;
+
+                                            <span data-tag-key="@tag.Key">@tagName</span>
+
+                                            if (i < tagCount - 1)
+                                            {
+                                                @:,
+                                            }
+                                        }
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <ul class="listing-item-btns">
+                        <li class="listing-item-btn">
+                            <a class="btn btn-green btn-218" href="@p.Url()">View Protocol</a>
+                        </li>
+                    </ul>
+                </div>
+            }
+        }
+    </section>
+</div>
+
+<script>
+    (function() {
+        'use strict';
+
+        let selectedFilters = new Set();
+        let allProtocols = [];
+        let filteredProtocols = [];
+
+        const filterCheckboxes = document.querySelectorAll('.filter-checkbox');
+        const protocolItems = document.querySelectorAll('.protocol-item');
+        const totalResultsElement = document.querySelector('.totalResults');
+        const resetButton = document.getElementById('resetFilter');
+
+        protocolItems.forEach(item => {
+            const tags = item.dataset.tags ? item.dataset.tags.split(',').filter(t => t.trim()) : [];
+            allProtocols.push({
+                element: item,
+                tags: tags,
+                tagSet: new Set(tags)
+            });
+        });
+
+        filteredProtocols = [...allProtocols];
+
+        function applyFilters() {
+            if (selectedFilters.size === 0) {
+                filteredProtocols = [...allProtocols];
+                allProtocols.forEach(p => p.element.style.display = 'block');
+            } else {
+                filteredProtocols = allProtocols.filter(protocol => {
+                    for (let filterKey of selectedFilters) {
+                        if (!protocol.tagSet.has(filterKey)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+
+                allProtocols.forEach(protocol => {
+                    protocol.element.style.display = filteredProtocols.includes(protocol) ? 'block' : 'none';
+                });
+            }
+
+            updateResultCount();
+        }
+
+        function updateResultCount() {
+            if (totalResultsElement) {
+                totalResultsElement.textContent = filteredProtocols.length;
+            }
+        }
+
+        function highlightSelectedTags() {
+            document.querySelectorAll('.theTags span[data-tag-key].highlight').forEach(el => {
+                el.classList.remove('highlight');
+            });
+
+            if (selectedFilters.size === 0) return;
+
+            selectedFilters.forEach(filterKey => {
+                document.querySelectorAll(`.theTags span[data-tag-key="${filterKey}"]`).forEach(span => {
+                    span.classList.add('highlight');
+                });
+            });
+        }
+
+        filterCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const tagKey = this.value;
+
+                if (this.checked) {
+                    selectedFilters.add(tagKey);
+                } else {
+                    selectedFilters.delete(tagKey);
+                }
+
+                applyFilters();
+                highlightSelectedTags();
+            });
+        });
+
+        if (resetButton) {
+            resetButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                filterCheckboxes.forEach(cb => cb.checked = false);
+                selectedFilters.clear();
+                applyFilters();
+                highlightSelectedTags();
+
+                document.querySelectorAll('.accordionContent').forEach(content => {
+                    content.style.display = 'none';
+                });
+                document.querySelectorAll('.accordionToggle img').forEach(toggle => {
+                    toggle.src = '/images/accordionToggle_Plus.jpg';
+                });
+            });
+        }
+
+        updateResultCount();
+    })();
+</script>
+
+<style>
+    .filterCategoriesGrid {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(180px, 1fr));
+        grid-auto-flow: row dense;
+        gap: 20px;
+        padding: 20px;
+        align-items: start;
+    }
+
+    @@media (max-width: 1200px) {
+        .filterCategoriesGrid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        .filterType[data-column-span="3"],
+        .filterType[data-column-span="4"],
+        .filterType[data-column-span="5"],
+        .filterType[data-column-span="6"] {
+            grid-column: span 3 !important;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .filterCategoriesGrid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .filterType {
+            grid-column: span 2 !important;
+        }
+        .filter-tags-container {
+            max-height: none !important;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .filterCategoriesGrid {
+            grid-template-columns: 1fr;
+        }
+        .filterType {
+            grid-column: span 1 !important;
+        }
+    }
+
+    .filterType {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        break-inside: avoid;
+    }
+
+    .filterType input[type="checkbox"] {
+        width: 10px;
+        height: 10px;
+        -webkit-appearance: checkbox;
+    }
+
+    .filter-tags-container {
+        display: flex;
+        flex-direction: column;
+        flex-wrap: wrap;
+        max-height: 650px;
+        gap: 6px;
+        align-content: flex-start;
+    }
+
+    .filter-tag-item {
+        display: block;
+        width: 180px;
+        padding-right: 10px;
+        font-size: 13px;
+        line-height: 1.4;
+        box-sizing: border-box;
+    }
+
+    .filter-tag-item input[type="checkbox"] {
+        margin-right: 6px;
+        vertical-align: middle;
+        width: 13px;
+        height: 13px;
+        opacity: 1 !important;
+        position: relative !important;
+        display: inline-block !important;
+    }
+
+    .filter-tag-item label {
+        cursor: pointer;
+        vertical-align: middle;
+        display: inline;
+        word-wrap: break-word;
+    }
+
+    .filter-tag-item .aspNetDisabled.disabled {
+        opacity: 0.5;
+    }
+
+    .filter-tag-item .aspNetDisabled.disabled label {
+        cursor: not-allowed;
+    }
+
+    .filter-tag-item .aspNetDisabled.disabled input[type="checkbox"] {
+        cursor: not-allowed;
+        opacity: 0.5 !important;
+    }
+
+    .protocol-item .theTags span.highlight {
+        background-color: #ffeb3b;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-weight: bold;
+    }
+</style>
