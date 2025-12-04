@@ -1,4 +1,4 @@
-﻿@using System.Text.RegularExpressions
+@using System.Text.RegularExpressions
 @using Umbraco.Cms.Web.Common.PublishedModels;
 @using Umbraco.Extensions
 @using Umbraco.Cms.Core.Models.PublishedContent
@@ -250,6 +250,12 @@
                         </dl>
                     }
 
+                    <ul class="listing-item-btns">
+                        <li class="listing-item-btn">
+                            <a class="btn btn-green btn-218" href="@p.Url()">View Protocol</a>
+                        </li>
+                    </ul>
+
                     @if (tagNodes != null && tagNodes.Any())
                     {
                         var tagsByCategory = tagNodes
@@ -263,7 +269,8 @@
                             })
                             .ToList();
 
-                        <div class="theTagsWrap">
+                        <div class="tags">
+                            <div class="tagHead">Tags:</div>
                             <div class="theTags">
                                 @{
                                     var isFirst = true;
@@ -300,12 +307,6 @@
                             </div>
                         </div>
                     }
-
-                    <ul class="listing-item-btns">
-                        <li class="listing-item-btn">
-                            <a class="btn btn-green btn-218" href="@p.Url()">View Protocol</a>
-                        </li>
-                    </ul>
                 </div>
             }
         }
@@ -415,6 +416,45 @@
 </script>
 
 <style>
+    /* Protocol listing item spacing */
+    .listing-item.protocol-item {
+        padding: 20px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .listing-item-btns {
+        margin-top: 15px;
+        margin-bottom: 15px;
+        list-style: none;
+        padding: 0;
+    }
+
+    /* Tags section styling */
+    .tags {
+        display: flex;
+        flex-direction: row;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+    }
+
+    .tagHead {
+        font-weight: bold;
+        margin-right: 10px;
+        white-space: nowrap;
+    }
+
+    .theTags {
+        flex: 1;
+        line-height: 1.6;
+    }
+
+    .theTags .typeTag {
+        font-weight: bold;
+    }
+
+    /* Filter grid styling */
     .filterCategoriesGrid {
         display: grid;
         grid-template-columns: repeat(6, minmax(180px, 1fr));
@@ -446,6 +486,20 @@
         .filter-tags-container {
             max-height: none !important;
         }
+
+        /* Mobile protocol item spacing */
+        .listing-item.protocol-item {
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .tags {
+            flex-direction: column;
+        }
+
+        .tagHead {
+            margin-bottom: 5px;
+        }
     }
 
     @@media (max-width: 480px) {
@@ -454,6 +508,11 @@
         }
         .filterType {
             grid-column: span 1 !important;
+        }
+
+        .listing-item.protocol-item {
+            padding: 10px;
+            margin-bottom: 10px;
         }
     }
 
