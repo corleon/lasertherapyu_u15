@@ -176,7 +176,7 @@
 </div>
 
 <script>
-    (function() {
+    document.addEventListener('DOMContentLoaded', function() {
         'use strict';
 
         let selectedFilters = new Set();
@@ -184,7 +184,7 @@
         let filteredItems = [];
 
         const filterCheckboxes = document.querySelectorAll('.filter-checkbox');
-        const listItems = document.querySelectorAll('.@itemSelector');
+        const listItems = document.querySelectorAll('.@(itemSelector)');
         const totalResultsElement = document.querySelector('.totalResults');
         const resetButton = document.getElementById('resetFilter');
 
@@ -274,7 +274,7 @@
         }
 
         updateResultCount();
-    })();
+    });
 </script>
 
 <style>
