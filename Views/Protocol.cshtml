@@ -1,0 +1,133 @@
+@using Umbraco.Extensions
+@using Umbraco.Cms.Core.Models.PublishedContent
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+
+@{
+    Layout = "master.cshtml";
+
+    // ---- Data from the protocol doctype ----
+    var pageTitle = Model?.Value<string>("pageTitle")?.Trim();
+    var headline = Model?.Value<string>("headline")?.Trim() ?? "";
+    var title = !string.IsNullOrWhiteSpace(headline) ? headline : (pageTitle ?? Model.Name);
+    
+    var shortDescriptionHtml = Model?.Value<string>("shortDescription") ?? "";
+    var price = Model?.Value<string>("price") ?? "";
+    var salePrice = Model?.Value<string>("salePrice") ?? "";
+    var showDiagrams = Model?.Value<bool>("showDiagrams") ?? false;
+    var diagramImages = Model?.Value<string>("diagramImages") ?? "";
+    
+    // Protocol file (MediaPicker3)
+    var protocolFile = Model?.Value<IPublishedContent>("protocolFile");
+    var protocolFileUrl = protocolFile?.Url() ?? "";
+
+    // Ancestor breadcrumbs
+    var crumbs = Model?.AncestorsOrSelf()?.OrderBy(x => x.Level).ToList() ?? new List<IPublishedContent>();
+
+    // Related protocols (siblings)
+    var related = Model?.Siblings()?
+        .Where(x => x.IsPublished() && x.ContentType.Alias == "protocol")
+        .Take(3)
+        .ToList() ?? new List<IPublishedContent>();
+
+    string Summary(IPublishedContent c)
+    {
+        var html = c?.Value<string>("shortDescription") ?? "";
+        return html.StripHtml().Trim();
+    }
+
+    // Price display logic
+    var displayPrice = "";
+    var hasSale = !string.IsNullOrWhiteSpace(salePrice) && salePrice != "0" && salePrice != "0.00";
+    if (hasSale)
+    {
+        displayPrice = salePrice;
+    }
+    else if (!string.IsNullOrWhiteSpace(price))
+    {
+        displayPrice = price;
+    }
+}
+
+<div class="content-wrapper content-protocols content-has-breadcrumb">
+
+    <nav class="breadcrumb-nav">
+        @if (crumbs?.Any() == true)
+        {
+            foreach (var c in crumbs)
+            {
+                if (c.Id == Model.Id)
+                {
+                    <span>@c.Name</span>
+                }
+                else
+                {
+                    <a title="@c.Name" href="@c.Url()">@c.Name</a>
+                }
+            }
+        }
+    </nav>
+
+    <header class="content-header content-header-has-icon">
+        <div class="content-header-icon">
+            <img src="/images/icon_protocols.png?h=118&amp;la=en&amp;w=100" alt="Protocols" width="100" height="118">
+        </div>
+        <h1 class="content-header-h1">@title</h1>
+    </header>
+
+    <article class="content-article protocol-detail">
+        @if (!string.IsNullOrWhiteSpace(shortDescriptionHtml))
+        {
+            @Html.Raw(shortDescriptionHtml)
+        }
+
+        @if (!string.IsNullOrWhiteSpace(displayPrice))
+        {
+            <div class="theProductPrice">
+                <span class="heading">Price: </span>$@displayPrice
+            </div>
+            <br>
+        }
+
+        <div class="product-info-btns">
+            @if (!string.IsNullOrWhiteSpace(protocolFileUrl))
+            {
+                <a title="Download Protocol" class="btn btn-green" href="@protocolFileUrl" target="_blank">Download Protocol</a>
+            }
+            else
+            {
+                <a title="Purchase Protocol" class="btn btn-green buy-product-now" href="#auth">Purchase Protocol</a>
+            }
+        </div>
+    </article>
+
+    @* ---- Diagram Images ---- *@
+    @if (showDiagrams && !string.IsNullOrWhiteSpace(diagramImages))
+    {
+        <div class="protocol-item">
+            <div class="protocol-item-image protocol-item-image-full">
+                @* TODO: Map diagram images from Sitecore GUIDs to Umbraco media *@
+                <p><em>Diagram images placeholder: @diagramImages</em></p>
+            </div>
+        </div>
+    }
+
+    @* ---- Related Protocols ---- *@
+    @if (related.Any())
+    {
+        <section class="related-products-listing" id="related-products">
+            <h2 class="related-products-h2">Related Protocols</h2>
+            <div class="related-products-wrapper">
+                @foreach (var p in related)
+                {
+                    var pTitle = p.Value<string>("headline");
+                    if (string.IsNullOrWhiteSpace(pTitle)) pTitle = p.Name;
+                    <div class="related-products-item">
+                        <h3 class="related-products-h3">@pTitle</h3>
+                        <div class="related-products-description">@Summary(p)</div>
+                        <a title="View Protocol" class="related-products-link" href="@p.Url()">View Protocol</a>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+</div>
