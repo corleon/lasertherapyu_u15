@@ -1,0 +1,114 @@
+﻿@using Umbraco.Extensions
+@using Umbraco.Cms.Core.Models.PublishedContent
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+
+@{
+    Layout = "master.cshtml";
+
+    var headline = Model?.Value<string>("headline")?.Trim();
+    var articleTitle = Model?.Value<string>("articleTitle")?.Trim();
+    var title = !string.IsNullOrWhiteSpace(articleTitle) ? articleTitle : (!string.IsNullOrWhiteSpace(headline) ? headline : Model.Name);
+    
+    var articleDate = Model?.Value<DateTime?>("articleDate");
+    var articleContributors = Model?.Value<string>("articleContributors") ?? "";
+    var journal = Model?.Value<string>("journal") ?? "";
+    var articleReference = Model?.Value<string>("articleReference") ?? "";
+    var shortDescription = Model?.Value<string>("shortDescription") ?? "";
+    var articleCopy = Model?.Value<string>("articleCopy") ?? "";
+    var linkToFullArticle = Model?.Value<string>("linkToFullArticle") ?? "";
+    var metaDescription = Model?.Value<string>("metaDescription") ?? "";
+
+    // Parse link if it contains Sitecore link markup
+    var articleUrl = linkToFullArticle;
+    if (linkToFullArticle.Contains("url=\""))
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(linkToFullArticle, @"url=""([^""]+)""");
+        if (match.Success)
+        {
+            articleUrl = match.Groups[1].Value;
+        }
+    }
+
+    // Breadcrumbs
+    var crumbs = Model?.AncestorsOrSelf()?.OrderBy(x => x.Level).ToList() ?? new List<IPublishedContent>();
+}
+
+<div class="content-wrapper content-research content-has-breadcrumb">
+
+    <nav class="breadcrumb-nav">
+        @if (crumbs?.Any() == true)
+        {
+            foreach (var c in crumbs)
+            {
+                if (c.Id == Model.Id)
+                {
+                    <span>@c.Name</span>
+                }
+                else
+                {
+                    <a title="@c.Name" href="@c.Url()">@c.Name</a>
+                }
+            }
+        }
+    </nav>
+
+    <header class="content-header content-header-has-icon">
+        <div class="content-header-icon">
+            <img src="/images/icon_research.png" alt="Research" width="132" height="116" />
+        </div>
+        <h1 class="content-header-h1">Laser Therapy Research</h1>
+        <div class="content-header-copy">
+            @if (!string.IsNullOrWhiteSpace(shortDescription))
+            {
+                @Html.Raw(shortDescription)
+            }
+            else
+            {
+                <p>Laser Therapy U's online research portal houses an extensive collection of published studies, articles and abstracts from around the world.</p>
+            }
+        </div>
+    </header>
+
+    <section class="studySubHead">
+        <h2 class="listing-item-h2">@title</h2>
+        
+        @if (!string.IsNullOrWhiteSpace(journal))
+        {
+            <p class="studyContributors">@journal</p>
+        }
+        
+        @if (!string.IsNullOrWhiteSpace(articleContributors))
+        {
+            <p class="studyContributors">@Html.Raw(articleContributors)</p>
+        }
+        
+        <div class="studyMeta">
+            @if (articleDate.HasValue)
+            {
+                @articleDate.Value.ToString("M/d/yyyy")
+            }
+            @if (!string.IsNullOrWhiteSpace(articleReference))
+            {
+                if (articleDate.HasValue)
+                {
+                    <text> - </text>
+                }
+                @Html.Raw(articleReference)
+            }
+        </div>
+    </section>
+
+    <article class="theStudy">
+        @Html.Raw(articleCopy)
+    </article>
+
+    @if (!string.IsNullOrWhiteSpace(articleUrl))
+    {
+        <ul class="listing-item-btns">
+            <li class="listing-item-btn">
+                <a title="Link to Full Article" class="btn btn-green" href="@articleUrl" target="_blank">Link to Full Article</a>
+            </li>
+        </ul>
+    }
+
+</div>

@@ -1,0 +1,252 @@
+@using System.Text.RegularExpressions
+@using Umbraco.Cms.Core
+@using Umbraco.Cms.Web.Common.PublishedModels;
+@using Umbraco.Extensions
+@using Umbraco.Cms.Core.Models.PublishedContent
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    Layout = "master.cshtml";
+
+    // Get all research items under this list page
+    var allResearch = Model!.Children()
+        .Where(x => x.IsPublished() && x.ContentType.Alias == "research")
+        .OrderByDescending(x => x.Value<DateTime?>("articleDate") ?? DateTime.MinValue)
+        .ThenBy(x => x.Value<string>("headline") ?? x.Name)
+        .ToList();
+
+    var total = allResearch.Count;
+
+    string DisplayDate(IPublishedContent c)
+        => c.Value<DateTime?>("articleDate")?.ToString("M/d/yyyy") ?? "";
+
+    string Summary(IPublishedContent c)
+    {
+        var html = c?.Value<string>("articleCopy") ?? "";
+        // Strip HTML and truncate for listing
+        var text = Regex.Replace(html, "<.*?>", " ");
+        text = Regex.Replace(text, @"\s+", " ").Trim();
+        if (text.Length > 300)
+            text = text.Substring(0, 300) + "...";
+        return text;
+    }
+}
+
+@await Html.PartialAsync("filterPanel", (Items: (IEnumerable<IPublishedContent>)allResearch, Total: total, ItemSelector: "research-item"))
+
+<div class="content-wrapper content-research content-has-breadcrumb">
+
+    <nav class="breadcrumb-nav">
+        <a title="Home" href="/">Home</a>
+        <span>Research</span>
+    </nav>
+
+    <header class="content-header content-header-has-icon">
+        <div class="content-header-icon">
+            <img src="/images/icon_research.png" alt="Research" width="132" height="116">
+        </div>
+        <h1 class="content-header-h1">Laser Therapy Research</h1>
+        <div class="content-header-copy">
+            <p>Laser Therapy U's online research portal houses an extensive collection of published studies, articles and abstracts from around the world.</p>
+            <p>Sort through our entire research database using the filter tool above.</p>
+            <p>Be sure to check back frequently…new items are added weekly!</p>
+        </div>
+    </header>
+
+    <section class="listing">
+        @if (!allResearch.Any())
+        {
+            <div class="listing-item">
+                <h2 class="listing-item-h2">No research found</h2>
+                <div class="listing-item-description">
+                    There aren't any research articles to show.
+                </div>
+            </div>
+        }
+        else
+        {
+            foreach (var r in allResearch)
+            {
+                var headline = r.Value<string>("headline")?.Trim();
+                var articleTitle = r.Value<string>("articleTitle")?.Trim();
+                var title = !string.IsNullOrWhiteSpace(articleTitle) ? articleTitle : (!string.IsNullOrWhiteSpace(headline) ? headline : r.Name);
+
+                var journal = r.Value<string>("journal") ?? "";
+                var articleContributors = r.Value<string>("articleContributors") ?? "";
+                var articleReference = r.Value<string>("articleReference") ?? "";
+
+                // MultiNodeTreePicker - same as protocols
+                var tagNodes = r.Value<IEnumerable<IPublishedContent>>("tags");
+                var tagKeys = tagNodes != null && tagNodes.Any()
+                    ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString()))
+                    : "";
+
+                <div class="listing-item research-item" data-tags="@tagKeys" data-research-key="@r.Key">
+                    <h2 class="listing-item-h2">@title</h2>
+
+                    @*@if (!string.IsNullOrWhiteSpace(journal))
+                    {
+                        <p class="studyContributors">@journal</p>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(articleContributors))
+                    {
+                        <p class="studyContributors">@Html.Raw(articleContributors)</p>
+                    }*@
+
+                    <dl class="listing-item-date">
+                        <dt>@DisplayDate(r)</dt>
+                        @if (!string.IsNullOrWhiteSpace(articleReference))
+                        {
+                            <text> - </text>
+                            <dd>@Html.Raw(articleReference)</dd>
+                        }
+                    </dl>
+
+                    <div class="listing-item-description">
+                        @Summary(r)
+                    </div>
+
+                    @if (tagNodes != null && tagNodes.Any())
+                    {
+                        var tagsByCategory = tagNodes
+                            .Where(tag => tag != null && tag.Parent != null)
+                            .GroupBy(tag => tag.Parent.Key)
+                            .Select(g => new
+                            {
+                                CategoryKey = g.Key,
+                                Category = g.First().Parent,
+                                Tags = g.OrderBy(t => t.SortOrder).ToList()
+                            })
+                            .OrderBy(g => g.Category?.Parent?.SortOrder ?? 0)
+                            .ThenBy(g => g.Category?.SortOrder ?? 0)
+                            .ToList();
+
+                        <div class="tags">
+                            <div class="tagHead">Tags:</div>
+                            <div class="theTags">
+                                @{
+                                    var isFirst = true;
+                                    foreach (var categoryGroup in tagsByCategory)
+                                    {
+                                        var category = categoryGroup.Category;
+                                        var tagsInCategory = categoryGroup.Tags;
+
+                                        if (!isFirst)
+                                        {
+                                            @:,
+                                        }
+                                        isFirst = false;
+
+                                        var categoryTitle = category?.Value<string>("categoryTitle") ?? category?.Name ?? "";
+                                        <span class="typeTag">@categoryTitle</span>
+                                        @:,
+
+                                        var tagCount = tagsInCategory.Count;
+                                        for (int i = 0; i < tagCount; i++)
+                                        {
+                                            var tag = tagsInCategory[i];
+                                            var tagName = tag.Value<string>("tagName") ?? tag.Name;
+
+                                            <span data-tag-key="@tag.Key">@tagName</span>
+
+                                            if (i < tagCount - 1)
+                                            {
+                                                @:,
+                                            }
+                                        }
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <ul class="listing-item-btns">
+                        <li class="listing-item-btn">
+                            <a class="btn btn-green btn-218" href="@r.Url()">View Abstract</a>
+                        </li>
+                    </ul>
+                </div>
+            }
+        }
+    </section>
+</div>
+
+<style>
+    /* Research listing item spacing */
+    .listing-item.research-item {
+        padding: 20px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .studyContributors {
+        color: #666;
+        font-style: italic;
+        margin: 5px 0;
+    }
+
+    @*.listing-item-date {
+        color: #888;
+        font-size: 0.9em;
+        margin: 10px 0;
+    }*@
+    
+
+        .listing-item-date dt,
+        .listing-item-date dd {
+            display: inline;
+        }
+
+    .listing-item-btns {
+        margin-top: 15px;
+        margin-bottom: 15px;
+        list-style: none;
+        padding: 0;
+    }
+
+    /* Tags section styling */
+    .tags {
+        display: flex;
+        flex-direction: row;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+    }
+
+    .tagHead {
+        font-weight: bold;
+        margin-right: 10px;
+        white-space: nowrap;
+    }
+
+    .theTags {
+        flex: 1;
+        line-height: 1.6;
+    }
+
+        .theTags .typeTag {
+            font-weight: bold;
+        }
+
+    @@media (max-width: 768px) {
+        .listing-item.research-item {
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .tags {
+            flex-direction: column;
+        }
+
+        .tagHead {
+            margin-bottom: 5px;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .listing-item.research-item {
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+    }
+</style>
