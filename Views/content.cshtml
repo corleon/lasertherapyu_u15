@@ -1,21 +1,36 @@
-﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<ContentModels.Content>
-
-@using Clean.Core.Models.ViewModels
-@using ContentModels = Umbraco.Cms.Web.Common.PublishedModels
-
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 
 @{
     Layout = "master.cshtml";
+
+    var pageTitle = Model.Value<string>("title");
+    if (string.IsNullOrWhiteSpace(pageTitle))
+    {
+        pageTitle = Model.Name;
+    }
+
+    var contentHtml = Model.Value<string>("content");
+    var contentRows = Model.Value<Umbraco.Cms.Core.Models.Blocks.BlockListModel>("contentRows");
 }
 
-@*@await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, Model.Title, Model.Subtitle, Model.MainImage))*@
+<div class="content-wrapper content-has-breadcrumb">
+    <nav class="breadcrumb-nav">
+        <a title="Home" href="/">Home</a>
+        <span>@Model.Name</span>
+    </nav>
 
-<article>
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-8 col-md-10 mx-auto">
-                @Html.GetBlockListHtml(Model.ContentRows)
-            </div>
-        </div>
-    </div>
-</article>
+    <header class="content-header">
+        <h1 class="content-header-h1">@pageTitle</h1>
+    </header>
+
+    <article class="content-article">
+        @if (!string.IsNullOrWhiteSpace(contentHtml))
+        {
+            @Html.Raw(contentHtml)
+        }
+        else if (contentRows != null && contentRows.Any())
+        {
+            @Html.GetBlockListHtml(contentRows)
+        }
+    </article>
+</div>
