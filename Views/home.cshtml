@@ -1,10 +1,92 @@
-﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<ContentModels.Home>
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<ContentModels.Home>
 
+@using System
+@using System.Linq
+@using Umbraco.Cms.Core.Models.PublishedContent
 @using Clean.Core.Models.ViewModels
 @using ContentModels = Umbraco.Cms.Web.Common.PublishedModels
 
 @{
     Layout = "master.cshtml";
+
+    var webinarsRoot = Model.Children().FirstOrDefault(x => x.ContentType.Alias == "webinars" && x.IsPublished());
+    var preRecordedWebinars = webinarsRoot?
+        .Children()
+        .FirstOrDefault(x => x.ContentType.Alias == "webinarList"
+            && x.IsPublished()
+            && x.Name.Contains("Pre-Recorded", StringComparison.OrdinalIgnoreCase))
+        ?? webinarsRoot?
+            .Children()
+            .FirstOrDefault(x => x.ContentType.Alias == "webinarList" && x.IsPublished());
+
+    var webinarItems = (preRecordedWebinars?.Children() ?? Enumerable.Empty<IPublishedContent>())
+        .Where(x => x.IsPublished()
+            && (x.ContentType.Alias == "veterinaryWebinar" || x.ContentType.Alias == "webinar")
+            && x.Value<bool?>("active") != false)
+        .OrderByDescending(x => x.Value<DateTime?>("date") ?? DateTime.MinValue)
+        .ThenBy(x => x.Name)
+        .Take(3)
+        .ToList();
+
+    var researchRoot = Model.Children().FirstOrDefault(x => x.ContentType.Alias == "researchList" && x.IsPublished());
+    var researchItems = (researchRoot?.Children() ?? Enumerable.Empty<IPublishedContent>())
+        .Where(x => x.IsPublished() && x.ContentType.Alias == "research")
+        .OrderByDescending(x => x.Value<DateTime?>("articleDate") ?? DateTime.MinValue)
+        .ThenBy(x => x.Value<string>("articleTitle") ?? x.Value<string>("headline") ?? x.Name)
+        .Take(3)
+        .ToList();
+
+    var protocolsRoot = Model.Children().FirstOrDefault(x => x.ContentType.Alias == "protocolsList" && x.IsPublished());
+    var protocolItems = (protocolsRoot?.Children() ?? Enumerable.Empty<IPublishedContent>())
+        .Where(x => x.IsPublished() && x.ContentType.Alias == "protocol")
+        .OrderBy(x => x.SortOrder)
+        .ThenBy(x => x.Value<string>("headline") ?? x.Name)
+        .Take(3)
+        .ToList();
+
+    var videosRoot = Model.Children().FirstOrDefault(x => x.ContentType.Alias == "videoList" && x.IsPublished());
+    var videoItems = (videosRoot?.Children() ?? Enumerable.Empty<IPublishedContent>())
+        .Where(x => x.IsPublished() && x.ContentType.Alias == "video")
+        .OrderByDescending(x => x.Value<DateTime?>("date") ?? DateTime.MinValue)
+        .ThenBy(x => x.Name)
+        .Take(3)
+        .ToList();
+
+    string GetWebinarTitle(IPublishedContent item) =>
+        (item.Value<string>("title") ?? item.Name).Trim();
+
+    string GetResearchTitle(IPublishedContent item)
+    {
+        var articleTitle = item.Value<string>("articleTitle")?.Trim();
+        var headline = item.Value<string>("headline")?.Trim();
+        return !string.IsNullOrWhiteSpace(articleTitle) ? articleTitle : (!string.IsNullOrWhiteSpace(headline) ? headline : item.Name);
+    }
+
+    string GetProtocolTitle(IPublishedContent item)
+    {
+        var headline = item.Value<string>("headline")?.Trim();
+        return string.IsNullOrWhiteSpace(headline) ? item.Name : headline;
+    }
+
+    string GetVideoTitle(IPublishedContent item) =>
+        (item.Value<string>("title") ?? item.Name).Trim();
+
+    string GetProtocolPriceLabel(IPublishedContent item)
+    {
+        var salePrice = (item.Value<string>("salePrice") ?? "").Trim();
+        if (!string.IsNullOrWhiteSpace(salePrice) && salePrice != "0" && salePrice != "0.00")
+        {
+            return salePrice.StartsWith("$", StringComparison.Ordinal) ? salePrice : $"${salePrice}";
+        }
+
+        var price = (item.Value<string>("price") ?? "").Trim();
+        if (!string.IsNullOrWhiteSpace(price) && price != "0" && price != "0.00")
+        {
+            return price.StartsWith("$", StringComparison.Ordinal) ? price : $"${price}";
+        }
+
+        return "FREE";
+    }
 }
 
 <section class="main_slider_wrapper">
@@ -41,34 +123,32 @@
             </div>
 
             <ul>
-
-                <li>
-                    <span>
-                        The BLUE Wave Advantage: Pioneering Breakthroughs in Modern Dental Care
-                    </span>
-
-                    <a id="content_0_controls_1_lvColumnOne_lvItems_0_hlLink_0" href="/webinars/pre-recorded-webinars/february-2025"><span class="featured">Featured Webinar  </span><span class="priceHighlight">FREE</span></a>
-                </li>
-
-                <li>
-                    <span>
-                        Laser Therapy Fundamentals: Practical Tips for Effective Integration
-                    </span>
-
-                    <a id="content_0_controls_1_lvColumnOne_lvItems_0_hlLink_1" href="/webinars/pre-recorded-webinars/january-2025"><span class="priceHighlight">FREE</span></a>
-                </li>
-
-                <li>
-                    <span>
-                        Clinical Decision Making in Laser Therapy
-                    </span>
-
-                    <a id="content_0_controls_1_lvColumnOne_lvItems_0_hlLink_2" href="/webinars/pre-recorded-webinars/december-2024"><span class="priceHighlight">FREE</span></a>
-                </li>
-
+                @if (webinarItems.Any())
+                {
+                    for (var i = 0; i < webinarItems.Count; i++)
+                    {
+                        var item = webinarItems[i];
+                        <li>
+                            <span>@GetWebinarTitle(item)</span>
+                            <a href="@item.Url()">
+                                @if (i == 0)
+                                {
+                                    <span class="featured">Featured Webinar  </span>
+                                }
+                                <span class="priceHighlight">FREE</span>
+                            </a>
+                        </li>
+                    }
+                }
+                else
+                {
+                    <li>
+                        <span>No webinars found</span>
+                    </li>
+                }
             </ul>
 
-            <a id="content_0_controls_1_lvColumnOne_hlViewAll_0" title="View All Webinars" href="/webinars/pre-recorded-webinars">View All Webinars</a>
+            <a id="content_0_controls_1_lvColumnOne_hlViewAll_0" title="View All Webinars" href="@(preRecordedWebinars?.Url() ?? webinarsRoot?.Url() ?? "/webinars")">View All Webinars</a>
 
         </div>
 
@@ -83,34 +163,32 @@
             </div>
 
             <ul>
-
-                <li>
-                    <span>
-                        Effect of phototherapy on delayed onset muscle soreness.
-                    </span>
-
-                    <a id="content_0_controls_1_lvColumnOne_lvItems_1_hlLink_0" href="/research/effect-of-phototherapy-on-delayed-onset-muscle-soreness"><span class="featured">Featured Study  </span><span class="priceHighlight">FREE</span></a>
-                </li>
-
-                <li>
-                    <span>
-                        Effects of early and delayed laser application on nerve regeneration
-                    </span>
-
-                    <a id="content_0_controls_1_lvColumnOne_lvItems_1_hlLink_1" href="/research/effects-of-early-and-delayed-laser-application-on-nerve-regeneration"><span class="priceHighlight">FREE</span></a>
-                </li>
-
-                <li>
-                    <span>
-                        Low-Level Laser Treatment Can Reduce Edema in Second Degree Ankle Sprains
-                    </span>
-
-                    <a id="content_0_controls_1_lvColumnOne_lvItems_1_hlLink_2" href="/research/lowlevel-laser-treatment-can-reduce-edema-in-second-degree-ankle-sprains"><span class="priceHighlight">FREE</span></a>
-                </li>
-
+                @if (researchItems.Any())
+                {
+                    for (var i = 0; i < researchItems.Count; i++)
+                    {
+                        var item = researchItems[i];
+                        <li>
+                            <span>@GetResearchTitle(item)</span>
+                            <a href="@item.Url()">
+                                @if (i == 0)
+                                {
+                                    <span class="featured">Featured Study  </span>
+                                }
+                                <span class="priceHighlight">FREE</span>
+                            </a>
+                        </li>
+                    }
+                }
+                else
+                {
+                    <li>
+                        <span>No studies found</span>
+                    </li>
+                }
             </ul>
 
-            <a id="content_0_controls_1_lvColumnOne_hlViewAll_1" title="View All Studies" href="/research">View All Studies</a>
+            <a id="content_0_controls_1_lvColumnOne_hlViewAll_1" title="View All Studies" href="@(researchRoot?.Url() ?? "/research")">View All Studies</a>
 
         </div>
 
@@ -125,34 +203,41 @@
             </div>
 
             <ul>
-
-                <li>
-                    <span>
-                        Lumbar Radiculopathy V2
-                    </span>
-
-                    <a id="content_0_controls_1_lvColumnOne_lvItems_2_hlLink_0" href="/protocols/lumbar-radiculopathy-v2"><span class="featured">Featured Protocol  </span><span class="priceHighlight">FREE</span></a>
-                </li>
-
-                <li>
-                    <span>
-                        Golfers Elbow V2
-                    </span>
-
-                    <a id="content_0_controls_1_lvColumnOne_lvItems_2_hlLink_1" href="/protocols/golfers-elbow-v2"><span>$29.95</span></a>
-                </li>
-
-                <li>
-                    <span>
-                        Piriformis Syndrome V2.0
-                    </span>
-
-                    <a id="content_0_controls_1_lvColumnOne_lvItems_2_hlLink_2" href="/protocols/piriformis-syndrome-v2"><span>$29.95</span></a>
-                </li>
-
+                @if (protocolItems.Any())
+                {
+                    for (var i = 0; i < protocolItems.Count; i++)
+                    {
+                        var item = protocolItems[i];
+                        var priceLabel = GetProtocolPriceLabel(item);
+                        var isFree = priceLabel.Equals("FREE", StringComparison.OrdinalIgnoreCase);
+                        <li>
+                            <span>@GetProtocolTitle(item)</span>
+                            <a href="@item.Url()">
+                                @if (i == 0)
+                                {
+                                    <span class="featured">Featured Protocol  </span>
+                                }
+                                @if (isFree)
+                                {
+                                    <span class="priceHighlight">@priceLabel</span>
+                                }
+                                else
+                                {
+                                    <span>@priceLabel</span>
+                                }
+                            </a>
+                        </li>
+                    }
+                }
+                else
+                {
+                    <li>
+                        <span>No protocols found</span>
+                    </li>
+                }
             </ul>
 
-            <a id="content_0_controls_1_lvColumnOne_hlViewAll_2" title="View All Protocols" href="/protocols">View All Protocols</a>
+            <a id="content_0_controls_1_lvColumnOne_hlViewAll_2" title="View All Protocols" href="@(protocolsRoot?.Url() ?? "/protocols")">View All Protocols</a>
 
         </div>
 
@@ -170,35 +255,33 @@
             </div>
 
             <ul>
-
-                <li>
-                    <span>
-                        Laser Treatment Application-PLANTAR FASCIITIS
-                    </span>
-
-                    <a id="content_0_controls_1_lvColumnOne_lvItems_3_hlLink_0" href="videos/laser-treatment-application-plantar-fasciitis"><span class="featured">Featured Video  </span><span class="priceHighlight">FREE</span></a>
-                </li>
-
-                <li>
-                    <span>
-                        Laser Treatment Application-SCIATICA
-                    </span>
-
-                    <a id="content_0_controls_1_lvColumnOne_lvItems_3_hlLink_1" href="/videos/laser-treatment-application-sciatica"><span class="priceHighlight">FREE</span></a>
-                </li>
-
-                <li>
-                    <span>
-                        Laser Treatment Application-PHOTOHEMOTHERAPY
-                    </span>
-
-                    <a id="content_0_controls_1_lvColumnOne_lvItems_3_hlLink_2" href="/videos/laser-treatment-application-photohemotherapy"><span class="priceHighlight">FREE</span></a>
-                </li>
-
+                @if (videoItems.Any())
+                {
+                    for (var i = 0; i < videoItems.Count; i++)
+                    {
+                        var item = videoItems[i];
+                        <li>
+                            <span>@GetVideoTitle(item)</span>
+                            <a href="@item.Url()">
+                                @if (i == 0)
+                                {
+                                    <span class="featured">Featured Video  </span>
+                                }
+                                <span class="priceHighlight">FREE</span>
+                            </a>
+                        </li>
+                    }
+                }
+                else
+                {
+                    <li>
+                        <span>No videos found</span>
+                    </li>
+                }
             </ul>
 
 
-            <a id="content_0_controls_1_lvColumnOne_hlViewAll_3" title="View All Videos" href="/videos">View All Videos</a>
+            <a id="content_0_controls_1_lvColumnOne_hlViewAll_3" title="View All Videos" href="@(videosRoot?.Url() ?? "/videos")">View All Videos</a>
 
         </div>
     </div>
