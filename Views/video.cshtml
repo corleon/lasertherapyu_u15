@@ -1,0 +1,114 @@
+@using Umbraco.Extensions
+@using Umbraco.Cms.Core.Models.PublishedContent
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+
+@{
+    Layout = "master.cshtml";
+
+    // ---- Data from the video doctype ----
+    var pageTitle = Model?.Value<string>("pageTitle")?.Trim();
+    var title = (Model?.Value<string>("title")?.Trim() ?? pageTitle ?? "");
+
+    var descriptionHtml = Model?.Value<string>("description") ?? "";
+    var videoEmbed = Model?.Value<string>("videoEmbedCode") ?? "";
+    var length = (Model?.Value<string>("length") ?? "").Trim();
+    var date = Model?.Value<System.DateTime?>("date");
+    string dateFormatted = date.HasValue ? date.Value.ToString("M/d/yyyy") : "";
+
+    // Ancestor breadcrumbs (Home > ... > Parent)
+    var crumbs = Model?.AncestorsOrSelf()?.OrderBy(x => x.Level).ToList() ?? new List<IPublishedContent>();
+
+    // Related videos (siblings under the same Video List)
+    var related = Model?.Siblings()?
+        .Where(x => x.IsPublished()
+            && x.ContentType.Alias == "video"
+        )
+        .OrderByDescending(x => x.Value<System.DateTime?>("date") ?? System.DateTime.MinValue)
+        .Take(3)
+        .ToList() ?? new List<IPublishedContent>();
+
+    string Summary(IPublishedContent c)
+    {
+        var html = c?.Value<string>("description") ?? "";
+        var text = html.StripHtml().Trim();
+        return text;
+    }
+}
+
+<div class="content-wrapper content-videos content-has-breadcrumb" data-variant="768">
+
+    <nav class="breadcrumb-nav">
+        @if (crumbs?.Any() == true)
+        {
+            foreach (var c in crumbs)
+            {
+                if (c.Id == Model.Id) { continue; }
+                <a title="@c.Name" href="@c.Url()">@c.Name</a>
+            }
+        }
+    </nav>
+
+    <header class="content-header content-header-has-icon">
+        <div class="content-header-icon">
+            <img src="/images/icon_videos.png?h=111&amp;la=en&amp;w=121" alt="Videos" width="121" height="111">
+        </div>
+        <h1 class="content-header-h1">@title</h1>
+    </header>
+
+    <section class="content-body">
+
+        @* ---- Video ---- *@
+        @if (!string.IsNullOrWhiteSpace(videoEmbed))
+        {
+            <div class="content-video-player">
+                @Html.Raw(videoEmbed)
+            </div>
+        }
+
+        @* ---- Meta (length & date) ---- *@
+        @if (!string.IsNullOrWhiteSpace(length) || !string.IsNullOrWhiteSpace(dateFormatted))
+        {
+            <dl class="listing-item-date">
+                @if (!string.IsNullOrWhiteSpace(length))
+                {
+                    <dt>Length:</dt>
+                    <dd>@length</dd>
+                }
+                @if (!string.IsNullOrWhiteSpace(dateFormatted))
+                {
+                    <dt>Date:</dt>
+                    <dd>@dateFormatted</dd>
+                }
+            </dl>
+        }
+
+        @* ---- Description ---- *@
+        @if (!string.IsNullOrWhiteSpace(descriptionHtml))
+        {
+            <article class="content-article">
+                @Html.Raw(descriptionHtml)
+            </article>
+        }
+    </section>
+
+    @* ---- Related Videos ---- *@
+    @if (related.Any())
+    {
+        <section class="related-products">
+            <h2 class="related-products-h2">More Videos</h2>
+
+            <div class="related-products-grid">
+                @foreach (var v in related)
+                {
+                    var vTitle = v.Value<string>("title");
+                    if (string.IsNullOrWhiteSpace(vTitle)) vTitle = v.Name;
+                    <div class="related-products-item">
+                        <h3 class="related-products-h3">@vTitle</h3>
+                        <div class="related-products-description">@Summary(v)</div>
+                        <a class="btn btn-green btn-218" href="@v.Url()">View Video</a>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+</div>

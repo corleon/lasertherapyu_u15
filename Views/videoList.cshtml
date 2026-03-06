@@ -1,0 +1,201 @@
+@using System.Text.RegularExpressions
+@using Umbraco.Cms.Web.Common.PublishedModels;
+@using Umbraco.Extensions
+@using Umbraco.Cms.Core.Models.PublishedContent
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    Layout = "master.cshtml";
+
+    // Pick up children of this "Video List" page
+    var allVideos = Model!.Children()
+        .Where(x => x.IsPublished()
+            && x.ContentType.Alias == "video")
+        .OrderByDescending(x => x.Value<DateTime?>("date") ?? DateTime.MinValue)
+        .ThenBy(x => x.Name)
+        .ToList();
+
+    var total = allVideos.Count;
+
+    string DisplayDate(IPublishedContent c)
+        => c.Value<DateTime?>("date")?.ToString("MM/dd/yyyy") ?? "";
+
+    string DisplayLength(IPublishedContent c)
+        => (c.Value<string>("length") ?? "").Trim();
+
+    string Summary(IPublishedContent c)
+    {
+        var html = c?.Value<string>("description") ?? "";
+        return html.Trim();
+    }
+}
+
+@await Html.PartialAsync("filterPanel", (Items: (IEnumerable<IPublishedContent>)allVideos, Total: total, ItemSelector: "video-item"))
+
+<div id="content_0_controls_1_pnlContentWrapper" class="content-wrapper content-videos content-has-breadcrumb">
+
+    <nav class="breadcrumb-nav">
+        <a title="Home" href="/">Home</a>
+        <span>Videos</span>
+    </nav>
+
+    <header class="content-header content-header-has-icon">
+        <div class="content-header-icon">
+            <img src="/images/icon_videos.png?h=111&amp;la=en&amp;w=121" alt="Videos" width="121" height="111">
+        </div>
+        <h1 class="content-header-h1">Videos</h1>
+        <div class="content-header-copy">
+            Below are some of the featured videos that we've handpicked to help broaden your knowledgebase on laser and light therapy.
+        </div>
+    </header>
+
+    <section class="listing">
+        @if (!allVideos.Any())
+        {
+            <div class="listing-item">
+                <h2 class="listing-item-h2">No videos found</h2>
+                <div class="listing-item-description">
+                    There aren't any videos to show.
+                </div>
+            </div>
+        }
+        else
+        {
+            foreach (var v in allVideos)
+            {
+                var title = v.Value<string>("title")?.Trim();
+
+                var tagNodes = v.Value<IEnumerable<IPublishedContent>>("tags");
+
+                var tagKeys = tagNodes != null && tagNodes.Any()
+                    ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString()))
+                    : "";
+
+                <div class="listing-item video-item" data-tags="@tagKeys" data-video-key="@v.Key">
+                    <h2 class="listing-item-h2">@((string.IsNullOrWhiteSpace(title) ? v.Name : title))</h2>
+
+                    <div class="listing-item-description">
+                        @Html.Raw(Summary(v) ?? "")
+                    </div>
+
+                    <dl class="listing-item-date">
+                        @if (!string.IsNullOrWhiteSpace(DisplayLength(v)))
+                        {
+                            <dt>Length:</dt>
+                            <dd>@DisplayLength(v)</dd>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(DisplayDate(v)))
+                        {
+                            <dt>Date:</dt>
+                            <dd>@DisplayDate(v)</dd>
+                        }
+                    </dl>
+
+                    @if (tagNodes != null && tagNodes.Any())
+                    {
+                        var tagsByCategory = tagNodes
+                            .Where(tag => tag != null && tag.Parent != null)
+                            .GroupBy(tag => tag.Parent.Key)
+                            .Select(g => new
+                            {
+                                CategoryKey = g.Key,
+                                Category = g.First().Parent,
+                                Tags = g.OrderBy(t => t.SortOrder).ToList()
+                            })
+                            .OrderBy(g => g.Category?.Parent?.SortOrder ?? 0)
+                            .ThenBy(g => g.Category?.SortOrder ?? 0)
+                            .ToList();
+
+                        <div class="tags">
+                            <div class="tagHead">Tags:</div>
+                            <div class="theTags">
+                                @{
+                                    var isFirst = true;
+                                    foreach (var categoryGroup in tagsByCategory)
+                                    {
+                                        var category = categoryGroup.Category;
+                                        var tagsInCategory = categoryGroup.Tags;
+
+                                        if (!isFirst)
+                                        {
+                                            @:,
+                                        }
+                                        isFirst = false;
+
+                                        var categoryTitle = category?.Value<string>("categoryTitle") ?? category?.Name ?? "";
+                                        <span class="typeTag">@categoryTitle</span>
+                                        @:,
+
+                                        var tagCount = tagsInCategory.Count;
+                                        for (int i = 0; i < tagCount; i++)
+                                        {
+                                            var tag = tagsInCategory[i];
+                                            var tagName = tag.Value<string>("tagName") ?? tag.Name;
+
+                                            <span data-tag-key="@tag.Key">@tagName</span>
+
+                                            if (i < tagCount - 1)
+                                            {
+                                                @:,
+                                            }
+                                        }
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <ul class="listing-item-btns">
+                        <li class="listing-item-btn">
+                            <a class="btn btn-green btn-218" href="@v.Url()">View Video</a>
+                        </li>
+                    </ul>
+                </div>
+            }
+        }
+    </section>
+    <article class="content-article"></article>
+</div>
+
+<style>
+    /* Video listing styles */
+    .tags {
+        display: flex;
+        flex-direction: row;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+    }
+
+    .tagHead {
+        font-weight: bold;
+        margin-right: 10px;
+        white-space: nowrap;
+    }
+
+    .theTags {
+        flex: 1;
+        line-height: 1.6;
+    }
+
+    .theTags .typeTag {
+        font-weight: bold;
+    }
+
+    @@media (max-width: 768px) {
+        .tags {
+            flex-direction: column;
+        }
+
+        .tagHead {
+            margin-bottom: 5px;
+        }
+    }
+
+    /* Highlighted tag in video listing */
+    .video-item .theTags span.highlight {
+        background-color: #ffeb3b;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-weight: bold;
+    }
+</style>
