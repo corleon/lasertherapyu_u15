@@ -1,4 +1,7 @@
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@using LTU_U15.Models.Membership
+@using System.Text.Json
+@using Umbraco.Extensions
 
 @{
     Layout = "master.cshtml";
@@ -11,11 +14,29 @@
 
     var contentHtml = Model.Value<string>("content");
     var contentRows = Model.Value<Umbraco.Cms.Core.Models.Blocks.BlockListModel>("contentRows");
+    var isMembershipPage = Model.AncestorsOrSelf().Any(x => x.Name.Equals("Members", StringComparison.OrdinalIgnoreCase));
+    var pageSlug = (Model.UrlSegment ?? string.Empty).ToLowerInvariant();
+
+    var registerModel = new RegisterMemberViewModel();
+    if (TempData.TryGetValue("RegistrationModel", out var registrationModelRaw) && registrationModelRaw is string registrationModelJson)
+    {
+        try
+        {
+            registerModel = JsonSerializer.Deserialize<RegisterMemberViewModel>(registrationModelJson) ?? new RegisterMemberViewModel();
+        }
+        catch
+        {
+            registerModel = new RegisterMemberViewModel();
+        }
+    }
 }
 
 <div class="content-wrapper content-has-breadcrumb">
     <nav class="breadcrumb-nav">
-        <a title="Home" href="/">Home</a>
+        @foreach (var ancestor in Model.Ancestors().OrderBy(x => x.Level))
+        {
+            <a title="@ancestor.Name" href="@ancestor.Url()">@ancestor.Name</a>
+        }
         <span>@Model.Name</span>
     </nav>
 
@@ -24,7 +45,27 @@
     </header>
 
     <article class="content-article">
-        @if (!string.IsNullOrWhiteSpace(contentHtml))
+        @if (isMembershipPage && pageSlug == "log-in")
+        {
+            @await Html.PartialAsync("~/Views/Partials/membership/loginForm.cshtml", new LoginMemberViewModel())
+        }
+        else if (isMembershipPage && pageSlug == "registration")
+        {
+            @await Html.PartialAsync("~/Views/Partials/membership/registerForm.cshtml", registerModel)
+        }
+        else if (isMembershipPage && pageSlug == "forgot-password")
+        {
+            @await Html.PartialAsync("~/Views/Partials/membership/forgotPasswordForm.cshtml", new ForgotPasswordViewModel())
+        }
+        else if (isMembershipPage && pageSlug == "forgot-username")
+        {
+            @await Html.PartialAsync("~/Views/Partials/membership/forgotUsernameForm.cshtml", new ForgotUsernameViewModel())
+        }
+        else if (isMembershipPage && pageSlug == "my-profile")
+        {
+            @await Html.PartialAsync("~/Views/Partials/membership/myProfile.cshtml")
+        }
+        else if (!string.IsNullOrWhiteSpace(contentHtml))
         {
             @Html.Raw(contentHtml)
         }

@@ -1,24 +1,24 @@
-﻿@inherits UmbracoViewPage<BlockListItem>
+@inherits UmbracoViewPage<BlockListItem>
+
 @using Umbraco.Cms.Core.Models.Blocks
-@using Clean.Core.Extensions
+@using Umbraco.Cms.Core.Models.PublishedContent
+@using Umbraco.Extensions
 
 @{
-    var row = Model.Content as ImageRow;
-    var settings = Model.Settings as ImageRowSettings;
-    if (settings?.Hide ?? false) { return; }
+    var row = Model.Content;
+    var settings = Model.Settings;
+    if (settings?.Value<bool>("hide") ?? false) { return; }
 
-    var spacingClasses = "";
-    if (Model.Settings is ISpacingProperties spacing)
-    {
-        spacingClasses = Clean.Core.Helpers.SpacingHelper.GetSpacingClasses(spacing.PaddingTop, spacing.PaddingBottom, spacing.PaddingLeft, spacing.PaddingRight, spacing.MarginTop, spacing.MarginBottom, spacing.MarginLeft, spacing.MarginRight);
-    }
+    var image = row?.Value<IPublishedContent>("image");
+    var caption = row?.Value<string>("caption");
+    if (image == null) { return; }
 }
 
-<div class="image @(spacingClasses)">
-    <img src="@row.Image.Url()" alt="@row.Image.Content.GetAltText()" class="img-fluid">
-    @if (!string.IsNullOrWhiteSpace(row.Caption))
+<div class="image">
+    <img src="@image.Url()" alt="@(caption ?? image.Name)" class="img-fluid">
+    @if (!string.IsNullOrWhiteSpace(caption))
     {
-        <p class="caption">@row.Caption</p>
+        <p class="caption">@caption</p>
     }
 </div>
 

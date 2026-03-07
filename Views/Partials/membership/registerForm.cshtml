@@ -1,0 +1,406 @@
+@model LTU_U15.Models.Membership.RegisterMemberViewModel
+
+<section class="content-form register">
+    <form method="post" action="/account/registration" class="form form-column form-column-1" id="membershipRegisterForm" novalidate>
+        @Html.AntiForgeryToken()
+
+        @if (TempData["MembershipMessage"] is string message && !string.IsNullOrWhiteSpace(message))
+        {
+            <p class="membership-message">@message</p>
+        }
+        <p id="registerErrorSummary" class="register-errors" style="display:none;"></p>
+
+        <p class="register-intro">Register now to gain access to important laser therapy information. Fields marked with an asterisk (*) are required.</p>
+
+        <ul>
+            <li class="form-item">
+                <label class="form-label" asp-for="CustomerType">I am a*</label>
+                <select class="form-selectbox" asp-for="CustomerType" id="CustomerType" data-required="true">
+                    <option value="">Select</option>
+                    <option value="laseru\Consumer">Consumer</option>
+                    <option value="laseru\Professional">Medical Professional</option>
+                    <option value="laseru\Educator Student">Educator/Student</option>
+                </select>
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="FirstName">First Name*</label>
+                <input class="form-text-input" asp-for="FirstName" data-required="true" />
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="LastName">Last Name*</label>
+                <input class="form-text-input" asp-for="LastName" data-required="true" />
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="Email">Email Address*</label>
+                <input class="form-text-input" asp-for="Email" data-required="true" />
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="PhoneNumber">Phone Number*</label>
+                <input class="form-text-input" asp-for="PhoneNumber" data-required="true" />
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="CompanyName">Company Name / Practice Name</label>
+                <input class="form-text-input" asp-for="CompanyName" />
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="Address">Address*</label>
+                <input class="form-text-input" asp-for="Address" data-required="true" />
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="Address2">Address 2</label>
+                <input class="form-text-input" asp-for="Address2" />
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="City">City*</label>
+                <input class="form-text-input" asp-for="City" data-required="true" />
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="Country">Country*</label>
+                <select class="form-selectbox" asp-for="Country" id="Country" data-required="true">
+                    <option value="">Select Country</option>
+                    <option value="United States">United States</option>
+                    <option value="Canada">Canada</option>
+                    <option value="United Kingdom">United Kingdom</option>
+                    <option value="Australia">Australia</option>
+                    <option value="Other">Other</option>
+                </select>
+            </li>
+
+            <li class="form-item" id="stateWrap" style="display:none;">
+                <label class="form-label" asp-for="State">State</label>
+                <select class="form-selectbox" asp-for="State">
+                    <option value="">Select State</option>
+                    <option value="AL">Alabama</option>
+                    <option value="AK">Alaska</option>
+                    <option value="AZ">Arizona</option>
+                    <option value="AR">Arkansas</option>
+                    <option value="CA">California</option>
+                    <option value="CO">Colorado</option>
+                    <option value="FL">Florida</option>
+                    <option value="GA">Georgia</option>
+                    <option value="IL">Illinois</option>
+                    <option value="NY">New York</option>
+                    <option value="TX">Texas</option>
+                    <option value="WA">Washington</option>
+                </select>
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="ZipPostalCode">Zip/Postal Code*</label>
+                <input class="form-text-input" asp-for="ZipPostalCode" data-required="true" />
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="UserType">User Type*</label>
+                <select class="form-selectbox" asp-for="UserType" id="UserType" data-required="true">
+                    <option value="">Select</option>
+                    <option value="Prospective Customer">Prospective Customer</option>
+                    <option value="Laser Product Owner">Laser Product Owner</option>
+                </select>
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="ProductOwned">Product Owned*</label>
+                <select class="form-selectbox" asp-for="ProductOwned" id="ProductOwned" data-required="true">
+                    <option value="">Select</option>
+                    <option value="GameDay Laser">GameDay Laser</option>
+                    <option value="PainAway Laser">PainAway Laser</option>
+                    <option value="Other">Other</option>
+                </select>
+            </li>
+
+            <li class="form-item" id="productNameWrap" style="display:none;">
+                <label class="form-label" asp-for="ProductName">Product Name</label>
+                <input class="form-text-input" asp-for="ProductName" />
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="HearAboutUs">How did you hear about us?</label>
+                <select class="form-selectbox" asp-for="HearAboutUs">
+                    <option value="">Select</option>
+                    <option value="Email/Newsletter Blast">Email/Newsletter Blast</option>
+                    <option value="Friend/Colleague">Friend/Colleague</option>
+                    <option value="Internet Search">Internet Search</option>
+                    <option value="Magazine or Newspaper Article">Magazine or Newspaper Article</option>
+                    <option value="Print or Web Advertisement">Print or Web Advertisement</option>
+                    <option value="Social Media (Facebook, Twitter, etc.)">Social Media (Facebook, Twitter, etc.)</option>
+                </select>
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="Username">Username*</label>
+                <input class="form-text-input" asp-for="Username" data-required="true" />
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="Password">Password*</label>
+                <input class="form-text-input" asp-for="Password" type="password" data-required="true" minlength="10" maxlength="100" />
+            </li>
+
+            <li class="form-item">
+                <label class="form-label" asp-for="ConfirmPassword">Confirm Password*</label>
+                <input class="form-text-input" asp-for="ConfirmPassword" type="password" data-required="true" minlength="10" maxlength="100" />
+            </li>
+
+            <li class="form-item form-item-checkbox">
+                <label class="register-checkbox-label" for="OptIn">
+                    <input class="register-checkbox" type="checkbox" id="OptIn" name="OptIn" value="true" @(Model.OptIn ? "checked" : null) />
+                    <span>I would like to receive information from Laser Therapy University.</span>
+                </label>
+            </li>
+
+            <li class="form-item form-item-checkbox">
+                <label class="register-checkbox-label" for="AcceptedTerms">
+                    <input class="register-checkbox" type="checkbox" id="AcceptedTerms" name="AcceptedTerms" value="true" @(Model.AcceptedTerms ? "checked" : null) data-required="true" />
+                    <span>*I agree to the <a href="/terms-and-conditions" target="_blank">Terms &amp; Conditions</a></span>
+                </label>
+                <span class="checkbox-error" id="AcceptedTermsError"></span>
+            </li>
+
+            <li class="form-item form-item-buttons">
+                <button type="submit" class="btn btn-blue">Submit</button>
+            </li>
+        </ul>
+    </form>
+</section>
+
+<script>
+    (function () {
+        var form = document.getElementById("membershipRegisterForm");
+        var productOwned = document.getElementById("ProductOwned");
+        var country = document.getElementById("Country");
+        var productWrap = document.getElementById("productNameWrap");
+        var stateWrap = document.getElementById("stateWrap");
+        var errorSummary = document.getElementById("registerErrorSummary");
+        var acceptedTermsError = document.getElementById("AcceptedTermsError");
+
+        function toggleProductName() {
+            if (!productWrap || !productOwned) {
+                return;
+            }
+            productWrap.style.display = productOwned.value === "Other" ? "" : "none";
+        }
+
+        function toggleState() {
+            if (!stateWrap || !country) {
+                return;
+            }
+            stateWrap.style.display = country.value === "United States" ? "" : "none";
+        }
+
+        function validateField(field) {
+            if (!field || field.dataset.required !== "true") {
+                return true;
+            }
+
+            if (field.type === "checkbox") {
+                return field.checked;
+            }
+
+            return (field.value || "").trim().length > 0;
+        }
+
+        function markField(field, invalid) {
+            if (!field) {
+                return;
+            }
+            if (field.type === "checkbox") {
+                var row = field.closest(".form-item-checkbox");
+                if (row) {
+                    row.classList.toggle("membership-invalid-checkbox", invalid);
+                }
+                return;
+            }
+            field.classList.toggle("membership-invalid", invalid);
+        }
+
+        if (productOwned) {
+            productOwned.addEventListener("change", toggleProductName);
+            toggleProductName();
+        }
+
+        if (country) {
+            country.addEventListener("change", toggleState);
+            toggleState();
+        }
+
+        if (!form) {
+            return;
+        }
+
+        var requiredFields = form.querySelectorAll("[data-required='true']");
+
+        requiredFields.forEach(function (field) {
+            field.addEventListener("input", function () {
+                markField(field, !validateField(field));
+            });
+            field.addEventListener("change", function () {
+                markField(field, !validateField(field));
+            });
+        });
+
+        form.addEventListener("submit", function (e) {
+            var hasErrors = false;
+            var errors = [];
+
+            requiredFields.forEach(function (field) {
+                var invalid = !validateField(field);
+                markField(field, invalid);
+                if (invalid) {
+                    hasErrors = true;
+                    if (field.id === "AcceptedTerms") {
+                        errors.push("You must accept Terms & Conditions.");
+                    }
+                }
+            });
+
+            var password = document.getElementById("Password");
+            var confirmPassword = document.getElementById("ConfirmPassword");
+            if (password && confirmPassword) {
+                if (password.value.length < 10 || password.value.length > 100) {
+                    markField(password, true);
+                    hasErrors = true;
+                    errors.push("Password must be 10-100 characters.");
+                }
+
+                if (password.value !== confirmPassword.value) {
+                    markField(confirmPassword, true);
+                    hasErrors = true;
+                    errors.push("Password and Confirm Password do not match.");
+                }
+            }
+
+            if (hasErrors) {
+                if (errorSummary) {
+                    errorSummary.style.display = "block";
+                    errorSummary.textContent = errors.length > 0
+                        ? errors.join(" ")
+                        : "Please fill in all required fields.";
+                }
+                if (acceptedTermsError) {
+                    acceptedTermsError.textContent = errors.some(function (x) { return x.indexOf("Terms") >= 0; })
+                        ? "Required"
+                        : "";
+                }
+                e.preventDefault();
+                return;
+            }
+
+            if (errorSummary) {
+                errorSummary.style.display = "none";
+                errorSummary.textContent = "";
+            }
+            if (acceptedTermsError) {
+                acceptedTermsError.textContent = "";
+            }
+        });
+
+    })();
+</script>
+
+<style>
+    .content-form.register .form {
+        max-width: 760px;
+    }
+
+    .content-form.register .form-item-checkbox {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-top: 8px;
+        list-style: none;
+    }
+
+    .content-form.register .register-checkbox {
+        margin: 3px 10px 0 0;
+        width: 16px;
+        height: 16px;
+        min-width: 16px;
+        min-height: 16px;
+        appearance: auto !important;
+        -webkit-appearance: checkbox !important;
+        -moz-appearance: checkbox !important;
+        cursor: pointer;
+        box-shadow: none !important;
+    }
+
+    .content-form.register .register-checkbox-label {
+        display: flex;
+        align-items: flex-start;
+        width: 100%;
+        text-align: left;
+        float: none;
+        margin: 0;
+        cursor: pointer;
+        line-height: 1.3;
+    }
+
+    .content-form.register .form-item-buttons {
+        margin-top: 16px;
+    }
+
+    .content-form.register .membership-message {
+        color: #333;
+        margin-bottom: 18px;
+    }
+
+    .content-form.register .register-intro {
+        margin: 0 0 18px;
+    }
+
+    .membership-invalid {
+        border-color: #c62828 !important;
+        outline: 1px solid #c62828 !important;
+        background-color: #fff5f5 !important;
+        box-sizing: border-box !important;
+    }
+
+    .content-form.register .membership-invalid-checkbox .register-checkbox-label {
+        color: #b00020;
+    }
+
+    .content-form.register .checkbox-error {
+        display: block;
+        color: #b00020;
+        font-size: 12px;
+        margin-left: 26px;
+        margin-top: 4px;
+    }
+
+    .content-form.register .register-errors {
+        color: #b00020;
+        margin: 8px 0 14px;
+    }
+
+    .content-form.register .form-selectbox {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        border: 0;
+        background-color: #e8e8e8;
+        background-image:
+            linear-gradient(45deg, transparent 50%, #4a4a4a 50%),
+            linear-gradient(135deg, #4a4a4a 50%, transparent 50%);
+        background-position:
+            calc(100% - 14px) calc(50% - 3px),
+            calc(100% - 8px) calc(50% - 3px);
+        background-size: 6px 6px, 6px 6px;
+        background-repeat: no-repeat;
+        padding-right: 28px;
+        box-sizing: border-box;
+    }
+
+    .content-form.register .form-text-input,
+    .content-form.register .form-selectbox {
+        box-sizing: border-box;
+    }
+</style>

@@ -1,15 +1,23 @@
-﻿@inherits UmbracoViewPage<BlockListItem>
+@inherits UmbracoViewPage<BlockListItem>
+
+@using Umbraco.Cms.Core.Models
 @using Umbraco.Cms.Core.Models.Blocks
+@using Umbraco.Cms.Core.Models.PublishedContent
+
 @addTagHelper *, Clean.Core
 
 @{
-    var row = Model.Content as IconLinkRow;
-    var settings = Model.Settings as IconLinkRowSettings;
-    if (settings?.Hide ?? false) { return; }
+    var row = Model.Content;
+    var settings = Model.Settings;
+    if (settings?.Value<bool>("hide") ?? false) { return; }
+
+    var link = row?.Value<Link>("link");
+    var icon = row?.Value<IPublishedContent>("icon");
+    if (link == null || icon == null) { return; }
 }
 
 <li class="list-inline-item">
-    <a href="@row.Link.Url" target="@row.Link.Target" rel="@(row.Link.Type == global::Umbraco.Cms.Core.Models.LinkType.External ? "noopener" : null)" title="@row.Link.Name">
-        <our-svg media-item="@row.Icon" class="social-icon"></our-svg>
+    <a href="@link.Url" target="@link.Target" rel="@(link.Type == LinkType.External ? "noopener" : null)" title="@link.Name">
+        <our-svg media-item="@icon" class="social-icon"></our-svg>
     </a>
 </li>

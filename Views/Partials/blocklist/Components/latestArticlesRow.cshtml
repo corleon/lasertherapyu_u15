@@ -1,53 +1,58 @@
-﻿@inherits UmbracoViewPage<BlockListItem>
-@using Umbraco.Cms.Core.Models.Blocks
-@using Clean.Core.Extensions
+@inherits UmbracoViewPage<BlockListItem>
+
 @using Clean.Core.Helpers
+@using Umbraco.Cms.Core.Models.Blocks
+@using Umbraco.Cms.Core.Models.PublishedContent
+@using Umbraco.Extensions
 
 @{
-    var row = Model.Content as LatestArticlesRow;
-    var settings = Model.Settings as LatestArticlesRowSettings;
-    if (settings?.Hide ?? false) { return; }
+    var row = Model.Content;
+    var settings = Model.Settings;
+    if (settings?.Value<bool>("hide") ?? false) { return; }
 
-    var spacingClasses = "";
-    if (Model.Settings is ISpacingProperties spacing)
-    {
-        spacingClasses = SpacingHelper.GetSpacingClasses(spacing.PaddingTop, spacing.PaddingBottom, spacing.PaddingLeft, spacing.PaddingRight, spacing.MarginTop, spacing.MarginBottom, spacing.MarginLeft, spacing.MarginRight);
-    }
-
-    var pageSize = row.PageSize;
+    var pageSize = row?.Value<int?>("pageSize") ?? 10;
     var pageNumber = QueryStringHelper.GetIntFromQueryString(Context.Request.Query, "page", 1);
-    var allArticles = row.ArticleList.Children<Article>().Where(x => x.IsVisible()).OrderByDescending(x => x.ArticleDate) ?? Enumerable.Empty<Article>();
+    var articleList = row?.Value<IPublishedContent>("articleList");
+    var allArticles = articleList?.Children()
+        .Where(x => x.ContentType.Alias == "article" && x.IsVisible())
+        .OrderByDescending(x => x.Value<DateTime?>("articleDate") ?? DateTime.MinValue)
+        ?? Enumerable.Empty<IPublishedContent>();
+
     var pageOfArticles = allArticles.Skip((pageNumber - 1) * pageSize).Take(pageSize);
     var totalItemCount = allArticles.Count();
-    var pageCount = totalItemCount > 0 ? Math.Ceiling((double)totalItemCount / pageSize) : 1;
+    var showPagination = row?.Value<bool>("showPagination") ?? false;
 }
 
-<div class="row clearfix @(spacingClasses)">
+<div class="row clearfix">
     <div class="col-md-12 column">
         @foreach (var article in pageOfArticles)
         {
-            var author = article.Author;
+            var author = article.Value<IPublishedContent>("author");
             bool.TryParse(article.Value<string>("showFullArticleOnListPage", fallback: Fallback.ToAncestors), out var showFullArticleOnListPage);
+            var title = article.Value<string>("title");
+            var subtitle = article.Value<string>("subtitle");
+            var articleDate = article.Value<DateTime?>("articleDate");
+            var categories = article.Value<IEnumerable<IPublishedContent>>("categories") ?? Enumerable.Empty<IPublishedContent>();
 
             <div class="post-preview">
                 <a href="@article.Url()">
                     <h2 class="post-title">
-                        @(!string.IsNullOrWhiteSpace(article.Title) ? article.Title : article.Name)
+                        @(!string.IsNullOrWhiteSpace(title) ? title : article.Name)
                     </h2>
-                    @if (!string.IsNullOrWhiteSpace(article.Subtitle))
+                    @if (!string.IsNullOrWhiteSpace(subtitle))
                     {
-                        <h3 class="post-subtitle">@article.Subtitle</h3>
+                        <h3 class="post-subtitle">@subtitle</h3>
                     }
                 </a>
                 <p class="post-meta @(showFullArticleOnListPage ? "mb-0" : "")">
                     @Umbraco.GetDictionaryValue("Article.Posted")
-                    @Umbraco.GetDictionaryValue("Article.By")@Html.Raw("&nbsp;")@author.Name
-                    @Umbraco.GetDictionaryValue("Article.On") @article.ArticleDate.ToString("MMMM dd, yyyy")
+                    @Umbraco.GetDictionaryValue("Article.By")@Html.Raw("&nbsp;")@(author?.Name ?? string.Empty)
+                    @Umbraco.GetDictionaryValue("Article.On") @(articleDate?.ToString("MMMM dd, yyyy"))
                 </p>
-                @if (showFullArticleOnListPage && article.Categories != null && article.Categories.Any())
+                @if (showFullArticleOnListPage && categories.Any())
                 {
                     <span class="mt-2 d-block"></span>
-                    @foreach (var category in article.Categories.Select(x => x.Name).OrderBy(y => y))
+                    @foreach (var category in categories.Select(x => x.Name).OrderBy(y => y))
                     {
                         <span class="badge rounded-pill bg-light text-dark border-dark border-5">@category</span>
                     }
@@ -59,7 +64,7 @@
             {
                 <div class="row">
                     <div class="col-12">
-                        @Html.GetBlockListHtml(article.ContentRows)
+                        @Html.GetBlockListHtml(article, "contentRows")
                     </div>
                 </div>
             }
@@ -67,9 +72,9 @@
             <hr>
         }
 
-        @if (row.ShowPagination)
+        @if (showPagination && articleList != null)
         {
-            @await Component.InvokeAsync("Pagination", new { totalItems = totalItemCount, url = row.ArticleList.Url(), pageNumber = pageNumber, pageSize = pageSize })
+            @await Component.InvokeAsync("Pagination", new { totalItems = totalItemCount, url = articleList.Url(), pageNumber = pageNumber, pageSize = pageSize })
         }
     </div>
 </div>

@@ -1,12 +1,14 @@
-﻿@inherits UmbracoViewPage<IPublishedContent>
+@inherits UmbracoViewPage<IPublishedContent>
+
+@using Umbraco.Extensions
 
 @{
-    var homePage = Model.AncestorOrSelf<Home>();
-    string domainAddress = homePage.Url(mode:UrlMode.Absolute).TrimEnd('/');
-    string canonicalLink = domainAddress + Model.Url();
+    var homePage = Model.Root();
+    string domainAddress = homePage?.Url(mode: UrlMode.Absolute)?.TrimEnd('/') ?? string.Empty;
+    string canonicalLink = string.IsNullOrWhiteSpace(domainAddress) ? Model.Url(mode: UrlMode.Absolute) : domainAddress + Model.Url();
     string metaName = Model.Value<string>("metaName");
     string metaDescription = Model.Value<string>("metaDescription");
-    var metaKeywords = Model.Value<IEnumerable<string>>("metaKeywords");
+    var metaKeywords = Model.Value<IEnumerable<string>>("metaKeywords") ?? Enumerable.Empty<string>();
     bool isFollowable = Model.Value<bool>("isFollowable", fallback: Fallback.ToAncestors);
     bool isIndexable = Model.Value<bool>("isIndexable", fallback: Fallback.ToAncestors);
 }

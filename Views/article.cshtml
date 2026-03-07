@@ -1,22 +1,29 @@
-﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<ContentModels.Article>
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 
 @using Clean.Core.Models.ViewModels
-@using ContentModels = Umbraco.Cms.Web.Common.PublishedModels
-@using Umbraco.Cms.Core
 @using Clean.Core.Extensions
+@using Umbraco.Cms.Core.Models.Blocks
+@using Umbraco.Cms.Core
+@using Umbraco.Cms.Core.Models.PublishedContent
 
 @{
     Layout = "master.cshtml";
-    var author = Model.Author;
+    var title = Model.Value<string>("title");
+    var subtitle = Model.Value<string>("subtitle");
+    var mainImage = Model.Value<IPublishedContent>("mainImage");
+    var author = Model.Value<IPublishedContent>("author");
+    var articleDate = Model.Value<DateTime?>("articleDate");
+    var categories = Model.Value<IEnumerable<IPublishedContent>>("categories");
+    var contentRows = Model.Value<BlockListModel>("contentRows");
 }
 
-@await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, Model.Title, Model.Subtitle, Model.MainImage, author.Name, Model.ArticleDate, Model.Categories))
+@await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, title, subtitle, mainImage, author?.Name, articleDate, categories))
 
 <article>
     <div class="container">
         <div class="row">
             <div class="col-lg-8 col-md-10 mx-auto">
-                @Html.GetBlockListHtml(Model.ContentRows)
+                @Html.GetBlockListHtml(contentRows)
             </div>
         </div>
     </div>

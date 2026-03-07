@@ -1,24 +1,22 @@
-﻿@inherits UmbracoViewPage<BlockListItem>
+@inherits UmbracoViewPage<BlockListItem>
+
 @using Umbraco.Cms.Core.Models.Blocks
 
 @{
-    var row = Model.Content as CodeSnippetRow;
-    var settings = Model.Settings as CodeSnippetRowSettings;
-    if (settings?.Hide ?? false) { return; }
+    var row = Model.Content;
+    var settings = Model.Settings;
+    if (settings?.Value<bool>("hide") ?? false) { return; }
 
-    var spacingClasses = "";
-    if (Model.Settings is ISpacingProperties spacing)
-    {
-        spacingClasses = Clean.Core.Helpers.SpacingHelper.GetSpacingClasses(spacing.PaddingTop, spacing.PaddingBottom, spacing.PaddingLeft, spacing.PaddingRight, spacing.MarginTop, spacing.MarginBottom, spacing.MarginLeft, spacing.MarginRight);
-    }
+    var code = row?.Value<string>("code");
+    var title = row?.Value<string>("title");
 }
 
-<div class="row clearfix @(spacingClasses)">
+<div class="row clearfix">
     <div class="col-md-12 column">
-        <pre><code>@row.Code</code></pre>
-        @if (!string.IsNullOrWhiteSpace(row.Title))
+        <pre><code>@code</code></pre>
+        @if (!string.IsNullOrWhiteSpace(title))
         {
-            <p class="caption">@row.Title</p>
+            <p class="caption">@title</p>
         }
     </div>
 </div>

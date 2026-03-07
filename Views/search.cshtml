@@ -1,18 +1,21 @@
-﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<ContentModels.Search>
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 
 @using Clean.Core.Models.ViewModels
-@using ContentModels = Umbraco.Cms.Web.Common.PublishedModels
 @using Umbraco.Cms.Core
-@using Clean.Core.Extensions
+@using Umbraco.Cms.Core.Models.PublishedContent
 @inject Umbraco.Cms.Core.IPublishedContentQuery publishedContentQuery
 
 @{
     Layout = "master.cshtml";
     var searchQuery = Context.Request.Query["q"];
-    var docTypesToIgnore = new[] { Category.ModelTypeAlias, CategoryList.ModelTypeAlias, Error.ModelTypeAlias, Search.ModelTypeAlias, XMlsitemap.ModelTypeAlias };
+    var docTypesToIgnore = new[] { "category", "categoryList", "error", "search", "xMLSitemap" };
+
+    var title = Model.Value<string>("title");
+    var subtitle = Model.Value<string>("subtitle");
+    var mainImage = Model.Value<IPublishedContent>("mainImage");
 }
 
-@await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, Model.Title, Model.Subtitle, Model.MainImage))
+@await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, title, subtitle, mainImage))
 
 <div class="container">
     <form action="@Model.Url()" method="GET" id="search">
@@ -37,29 +40,38 @@
                     {
                         foreach (var result in results)
                         {
+                            var resultContent = result.Content;
+                            var author = resultContent.HasProperty("author") && resultContent.HasValue("author")
+                                ? resultContent.Value<IPublishedContent>("author")
+                                : null;
+                            var articleDate = resultContent.HasProperty("articleDate") && resultContent.HasValue("articleDate")
+                                ? resultContent.Value<DateTime?>("articleDate")
+                                : null;
+
                             <div class="post-preview">
-                                <a href="@result.Content.Url()">
+                                <a href="@resultContent.Url()">
                                     <h2 class="post-title">
-                                        @(result.Content.HasProperty("title") && result.Content.HasValue("title") && !string.IsNullOrWhiteSpace(result.Content.Value<string>("title")) ? result.Content.Value("title") : result.Content.Name)
+                                        @(resultContent.HasProperty("title") && resultContent.HasValue("title") && !string.IsNullOrWhiteSpace(resultContent.Value<string>("title")) ? resultContent.Value("title") : resultContent.Name)
                                     </h2>
-                                    @if (result.Content.HasProperty("subtitle") && result.Content.HasValue("subtitle") && !string.IsNullOrWhiteSpace(result.Content.Value<string>("subtitle")))
+                                    @if (resultContent.HasProperty("subtitle") && resultContent.HasValue("subtitle") && !string.IsNullOrWhiteSpace(resultContent.Value<string>("subtitle")))
                                     {
-                                        <h3 class="post-subtitle">@(result.Content.Value<string>("subtitle"))</h3>
+                                        <h3 class="post-subtitle">@(resultContent.Value<string>("subtitle"))</h3>
                                     }
                                 </a>
-                                @if (result.Content is IArticleControls article && ((result.Content.HasProperty("author") && result.Content.HasValue("author"))
-                               || (result.Content.HasProperty("articleDate") && result.Content.HasValue("articleDate") && result.Content.Value<DateTime>("articleDate") > DateTime.MinValue)))
+                                @if (author != null || (articleDate != null && articleDate > DateTime.MinValue))
                                 {
-                                    var author = article.Author;
                                     <p class="post-meta">
                                         @Umbraco.GetDictionaryValue("Article.Posted")
-                                        @Umbraco.GetDictionaryValue("Article.By")@Html.Raw("&nbsp;")@(author.Name)
+                                        @if (author != null)
+                                        {
+                                            @Umbraco.GetDictionaryValue("Article.By")@Html.Raw("&nbsp;")@author.Name
+                                        }
 
-                                        @if (article.ArticleDate != null && article.ArticleDate > DateTime.MinValue)
+                                        @if (articleDate != null && articleDate > DateTime.MinValue)
                                         {
                                             @Umbraco.GetDictionaryValue("Article.On")
 
-                                            @:&nbsp;@(article.ArticleDate.ToString("MMMM dd, yyyy"))
+                                            @:&nbsp;@(articleDate.Value.ToString("MMMM dd, yyyy"))
                                         }
                                     </p>
                                 }

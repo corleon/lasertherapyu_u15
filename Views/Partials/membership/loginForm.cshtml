@@ -1,0 +1,28 @@
+@model LTU_U15.Models.Membership.LoginMemberViewModel
+
+<section class="content-form login">
+    <form method="post" action="/account/log-in" class="form form-column form-column-1">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="ReturnUrl" />
+        <h2>Welcome Back! Sign In Here.</h2>
+
+        @if (TempData["MembershipMessage"] is string message && !string.IsNullOrWhiteSpace(message))
+        {
+            <p>@message</p>
+        }
+
+        <label class="form-label" asp-for="Username">Username*</label>
+        <input class="form-text-input" asp-for="Username" />
+
+        <label class="form-label" asp-for="Password">Password*</label>
+        <input class="form-text-input" asp-for="Password" />
+
+        <p>(forgot your <a href="/members/forgot-password">Password</a> or <a href="/members/forgot-username">Username</a>?)</p>
+        <button type="submit" class="btn btn-blue">Submit</button>
+    </form>
+
+    <div class="form form-column form-column-2">
+        <h2>Not a registered site user?</h2>
+        <a class="btn btn-blue" href="/members/registration">Register Here</a>
+    </div>
+</section>

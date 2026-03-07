@@ -1,0 +1,12 @@
+<section class="content-form profile">
+    <div class="form form-column form-column-1">
+        <h2>Welcome to your member cabinet.</h2>
+        <p>Hello, @(User?.Identity?.Name ?? "member")!</p>
+        <p>Your profile area is ready. Next step we can add real member data here.</p>
+
+        <form method="post" action="/account/log-out" style="margin-top:16px;">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-blue">Log Out</button>
+        </form>
+    </div>
+</section>

@@ -1,7 +1,7 @@
-﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<ContentModels.Contact>
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 
 @using Clean.Core.Models.ViewModels
-@using ContentModels = Umbraco.Cms.Web.Common.PublishedModels
+@using Umbraco.Cms.Core.Models.PublishedContent
 
 @{
     Layout = "master.cshtml";
@@ -10,9 +10,16 @@
     {
         submitted = true;
     }
+
+    var title = Model.Value<string>("title");
+    var subtitle = Model.Value<string>("subtitle");
+    var mainImage = Model.Value<IPublishedContent>("mainImage");
+    var successMessage = Model.Value<string>("successMessage");
+    var errorMessage = Model.Value<string>("errorMessage");
+    var instructionMessage = Model.Value<string>("instructionMessage");
 }
 
-@await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, Model.Title, Model.Subtitle, Model.MainImage))
+@await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, title, subtitle, mainImage))
 
 <main class="mb-4">
     <div class="container px-4 px-lg-5">
@@ -20,19 +27,18 @@
             <div class="col-md-10 col-lg-8 col-xl-7">
                 @if(submitted)
                 {
-
-                    @if (success)
+                    if (success)
                     {
-                        @Model.SuccessMessage
+                        @successMessage
                     }
                     else
                     {
-                        @Model.ErrorMessage
+                        @errorMessage
                     }
                 }
                 else
                 {
-                    @Model.InstructionMessage
+                    @instructionMessage
                     <div class="my-5">
                         @await Component.InvokeAsync("Contact")
                     </div>

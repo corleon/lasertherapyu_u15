@@ -1,15 +1,19 @@
-﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<ContentModels.Author>
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 
 @using Clean.Core.Models.ViewModels
-@using ContentModels = Umbraco.Cms.Web.Common.PublishedModels
+@using Umbraco.Cms.Core.Models.Blocks
+@using Umbraco.Cms.Core.Models.PublishedContent
 
 @{
     Layout = "master.cshtml";
-    var authorListPage = Model.Parent as AuthorList;
+    var title = Model.Value<string>("title");
+    var subtitle = Model.Value<string>("subtitle");
+    var authorListMainImage = Model.Parent?.Value<IPublishedContent>("mainImage");
+    var mainImage = Model.Value<IPublishedContent>("mainImage");
+    var contentRows = Model.Value<BlockListModel>("contentRows");
 }
 
-
-@await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, Model.Title, Model.Subtitle, authorListPage.MainImage, null, null))
+@await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, title, subtitle, authorListMainImage, null, null))
 
 <article>
     <div class="container">
@@ -18,12 +22,12 @@
 
                 <div class="row clearfix">
                     <div class="col-md-4 column mx-auto">
-                        <img src="@Model.MainImage.GetCropUrl(400)" alt="@Model.Name" class="w-100">
+                        <img src="@mainImage?.Url()" alt="@Model.Name" class="w-100">
                         <p class="caption">@Model.Name</p>
                     </div>
                 </div>
 
-                @Html.GetBlockListHtml(Model.ContentRows)
+                @Html.GetBlockListHtml(contentRows)
             </div>
         </div>
     </div>

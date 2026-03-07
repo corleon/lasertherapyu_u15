@@ -1,18 +1,15 @@
-﻿@inherits UmbracoViewPage<BlockListItem>
+@inherits UmbracoViewPage<BlockListItem>
+
 @using Umbraco.Cms.Core.Models.Blocks
 
 @{
-    var row = Model.Content as RichTextRow;
-    var settings = Model.Settings as RichTextRowSettings;
-    if (settings?.Hide ?? false) { return; }
+    var row = Model.Content;
+    var settings = Model.Settings;
+    if (settings?.Value<bool>("hide") ?? false) { return; }
 
-    var spacingClasses = "";
-    if (Model.Settings is ISpacingProperties spacing)
-    {
-        spacingClasses = Clean.Core.Helpers.SpacingHelper.GetSpacingClasses(spacing.PaddingTop, spacing.PaddingBottom, spacing.PaddingLeft, spacing.PaddingRight, spacing.MarginTop, spacing.MarginBottom, spacing.MarginLeft, spacing.MarginRight);
-    }
+    var content = row?.Value<string>("content");
 }
 
-<div class="richtext @(spacingClasses)">
-    @row.Content
+<div class="richtext">
+    @Html.Raw(content)
 </div>

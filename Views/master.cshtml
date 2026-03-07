@@ -1,8 +1,13 @@
-﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@using Umbraco.Cms.Core.Security
+@inject IMemberManager MemberManager
 
 @{
     Layout = null;
     var currentYear = DateTime.UtcNow.Year;
+    var currentMember = await MemberManager.GetCurrentMemberAsync();
+    var isMemberLoggedIn = currentMember != null;
+    var memberDisplayName = currentMember?.UserName ?? "My Profile";
 }
 
 <!DOCTYPE HTML>
@@ -106,7 +111,6 @@
     </noscript>
     <!-- End NT (noscript) -->
 
-    <form method="post" action="/" id="mainform">
         @*  <div class="aspNetHidden">
             <input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwUKLTUzODgwMzU0Nw8WAh4TVmFsaWRhdGVSZXF1ZXN0TW9kZQIBFgoCAw8WAh4EVGV4dAV1PHRpdGxlPkxhc2VyIFRoZXJhcHkgVW5pdmVyc2l0eTwvdGl0bGU+DQo8bWV0YSBuYW1lPSJkZXNjcmlwdGlvbiIgY29udGVudD0iIiAvPg0KPG1ldGEgbmFtZT0ia2V5d29yZHMiIGNvbnRlbnQ9IiIvPg0KZAIFDxYCHwEFyAM8bWV0YSBwcm9wZXJ0eT0ib2c6c2l0ZV9uYW1lIiBjb250ZW50PSJMYXNlclRoZXJhcHlVLm9yZywgTExDIiAvPg0KPG1ldGEgcHJvcGVydHk9Im9nOnRpdGxlIiBjb250ZW50PSJMYXNlciBUaGVyYXB5IFVuaXZlcnNpdHkiIC8+DQo8bWV0YSBwcm9wZXJ0eT0ib2c6dHlwZSIgY29udGVudD0iY29tcGFueSIgLz4NCjxtZXRhIHByb3BlcnR5PSJvZzp1cmwiIGNvbnRlbnQ9Imh0dHBzOi8vd3d3Lmxhc2VydGhlcmFweXUub3JnOjQ0My8iLz4NCjxtZXRhIHByb3BlcnR5PSJvZzpkZXNjcmlwdGlvbiIgY29udGVudD0iIiAvPg0KPG1ldGEgcHJvcGVydHk9Im9nOmltYWdlIiBjb250ZW50PSJodHRwczovL3d3dy5sYXNlcnRoZXJhcHl1Lm9yZzo0NDMvfi9tZWRpYS9sYXNlci11L2ltYWdlcy9zb2NpYWwtbWVkaWEvZmFjZWJvb2svZmFjZWJvb2stc2hhcmUuanBnP3Y9NjM1MTE0ODA2NzQ4MzQ5MjcwIi8+DQpkAgcPFgIfAQXRBTxsaW5rIHJlbD0iYXBwbGUtdG91Y2gtaWNvbiIgaHJlZj0iL34vbWVkaWEvbGFzZXItdS9pbWFnZXMvYXBwLWljb25zL2FwcGxlLXRvdWNoLWljb24ucG5nP213PTU3Jm1oPTU3JnU9MjAxMzA4MDdUMTM1NjQ4IiAvPg0KPGxpbmsgcmVsPSJhcHBsZS10b3VjaC1pY29uLXByZWNvbXBvc2VkIiBocmVmPSIvfi9tZWRpYS9sYXNlci11L2ltYWdlcy9hcHAtaWNvbnMvYXBwbGUtdG91Y2gtaWNvbi1wcmVjb21wb3NlZC5wbmc/bXc9NTcmbWg9NTcmdT0yMDEzMDgwN1QxMzU3MDYiIC8+DQo8bGluayByZWw9ImFwcGxlLXRvdWNoLWljb24iIHNpemVzPSI3Mng3MiIgaHJlZj0iL34vbWVkaWEvbGFzZXItdS9pbWFnZXMvYXBwLWljb25zL2FwcGxlLXRvdWNoLWljb24tNzJ4NzIucG5nP213PTcyJm1oPTcyJnU9MjAxMzA4MDdUMTM1NTM4IiAvPg0KPGxpbmsgcmVsPSJhcHBsZS10b3VjaC1pY29uIiBzaXplcz0iMTE0eDExNCIgaHJlZj0iL34vbWVkaWEvbGFzZXItdS9pbWFnZXMvYXBwLWljb25zL2FwcGxlLXRvdWNoLWljb24tMTE0eDExNC5wbmc/bXc9MTE0Jm1oPTExNCZ1PTIwMTMwODA3VDEzNTYyNyIgLz4NCjxsaW5rIHJlbD0iYXBwbGUtdG91Y2gtaWNvbiIgc2l6ZXM9IjE0NHgxNDQiIGhyZWY9Ii9+L21lZGlhL2xhc2VyLXUvaW1hZ2VzL2FwcC1pY29ucy9hcHBsZS10b3VjaC1pY29uLTE0NHgxNDQucG5nP213PTE0NCZtaD0xNDQmdT0yMDEzMDgwN1QxMzU2MDUiIC8+DQpkAgkPFgIfAQWNAjxsaW5rIHJlbD0ic3R5bGVzaGVldCIgaHJlZj0iL3ByZXNlbnRhdGlvbi9sYXNlcnUvY3NzL2dsb2JhbC5jc3M/dj02MzUxNjM3NzQ3MTIzOTMzNTAiIC8+DQo8bGluayByZWw9InN0eWxlc2hlZXQiIGhyZWY9Ii9wcmVzZW50YXRpb24vbGFzZXJ1L2Nzcy9tb2RhbC5jc3M/dj02MzUxNjM3NzQ4NTE0ODYwMTAiIC8+DQo8c2NyaXB0IHNyYz0iL3ByZXNlbnRhdGlvbi9sYXNlcnUvanMvbGFzZXJ1LXBsdWdpbnMuanM/dj02MzUxNjM3NzU2NTg3NjgzMjUiPjwvc2NyaXB0Pg0KZAINEGRkFggCAw9kFgICAQ9kFgJmD2QWAmYPZBYEAgEPZBYEZg9kFgJmD2QWAgIBDxYCHgtfIUl0ZW1Db3VudAIEFghmD2QWAgIBDw8WAh4LTmF2aWdhdGVVcmwFJGh0dHA6Ly93d3cubGFzZXJ0aGVyYXB5dS5vcmcvd2VsY29tZWRkAgEPZBYCAgEPDxYCHwMFIi9wcm90b2NvbHMvbHVtYmFyLXJhZGljdWxvcGF0aHktdjJkZAICD2QWAgIBDw8WAh8DBTpodHRwOi8vd3d3Lmxhc2VydGhlcmFweXUub3JnL2NvbXBhcmF0aXZlJTIwcGlsbGFycyUyMHBhcGVyZGQCAw9kFgICAQ8PFgIfAwVIaHR0cHM6Ly9yZWdpc3Rlci5nb3Rvd2ViaW5hci5jb20vcmVnaXN0ZXIvMzYzNjk2NjEwNzM1MjMzOTAzNz9zb3VyY2U9bHR1ZGQCAQ9kFgJmD2QWBAIBDxQrAAIPFgQeC18hRGF0YUJvdW5kZx8CAgRkZBYCZg9kFggCAQ9kFgICAQ8PFgYeCENzc0NsYXNzBSFkYXNoYm9hcmQtaXRlbSBkYXNoYm9hcmQtd2ViaW5hcnMeBF8hU0ICAh4HVmlzaWJsZWdkFggCAQ8WAh8BBQhXZWJpbmFyc2QCAw8PFgIfB2dkFgICAQ8PFgQfBQUEcmVzcx8GAgIWDB4NZGF0YS1vcmlnaW5hbAU3L34vbWVkaWEvbGFzZXItdS9pbWFnZXMvc2VjdGlvbi1pY29ucy9pY29uX3dlYmluYXJzLnBuZx4Fd2lkdGgFAzE0NR4GaGVpZ2h0BQMxMDkeCmRhdGEtbGFyZ2UFAzE0NR4LZGF0YS1uYXJyb3cFAzEyOB4KZGF0YS1zbWFsbAUDMTQ1ZAIFDxQrAAIPFgQfBGcfAgIDZGQWAmYPZBYGAgEPZBYEAgEPFgIfAQVHVGhlIEJMVUUgV2F2ZSBBZHZhbnRhZ2U6IFBpb25lZXJpbmcgQnJlYWt0aHJvdWdocyBpbiBNb2Rlcm4gRGVudGFsIENhcmVkAgMPDxYCHwMFLS93ZWJpbmFycy9wcmUtcmVjb3JkZWQtd2ViaW5hcnMvZmVicnVhcnktMjAyNWRkAgIPZBYEAgEPFgIfAQVETGFzZXIgVGhlcmFweSBGdW5kYW1lbnRhbHM6IFByYWN0aWNhbCBUaXBzIGZvciBFZmZlY3RpdmUgSW50ZWdyYXRpb25kAgMPDxYCHwMFLC93ZWJpbmFycy9wcmUtcmVjb3JkZWQtd2ViaW5hcnMvamFudWFyeS0yMDI1ZGQCAw9kFgQCAQ8WAh8BBSlDbGluaWNhbCBEZWNpc2lvbiBNYWtpbmcgaW4gTGFzZXIgVGhlcmFweWQCAw8PFgIfAwUtL3dlYmluYXJzL3ByZS1yZWNvcmRlZC13ZWJpbmFycy9kZWNlbWJlci0yMDI0ZGQCBw8PFgYeB1Rvb2xUaXAFEVZpZXcgQWxsIFdlYmluYXJzHwEFEVZpZXcgQWxsIFdlYmluYXJzHwMFHy93ZWJpbmFycy9wcmUtcmVjb3JkZWQtd2ViaW5hcnNkZAICD2QWAgIBDw8WBh8FBSFkYXNoYm9hcmQtaXRlbSBkYXNoYm9hcmQtcmVzZWFyY2gfBgICHwdnZBYIAgEPFgIfAQUIUmVzZWFyY2hkAgMPDxYCHwdnZBYCAgEPDxYEHwUFBHJlc3MfBgICFgwfCAU3L34vbWVkaWEvbGFzZXItdS9pbWFnZXMvc2VjdGlvbi1pY29ucy9pY29uX3Jlc2VhcmNoLnBuZx8JBQMxMzIfCgUDMTE2HwsFAzE0NR8MBQMxMjgfDQUDMTQ1ZAIFDxQrAAIPFgQfBGcfAgIDZGQWAmYPZBYGAgEPZBYEAgEPFgIfAQU4RWZmZWN0IG9mIHBob3RvdGhlcmFweSBvbiBkZWxheWVkIG9uc2V0IG11c2NsZSBzb3JlbmVzcy5kAgMPDxYCHwMFQS9yZXNlYXJjaC9lZmZlY3Qtb2YtcGhvdG90aGVyYXB5LW9uLWRlbGF5ZWQtb25zZXQtbXVzY2xlLXNvcmVuZXNzZGQCAg9kFgQCAQ8WAh8BBURFZmZlY3RzIG9mIGVhcmx5IGFuZCBkZWxheWVkIGxhc2VyIGFwcGxpY2F0aW9uIG9uIG5lcnZlIHJlZ2VuZXJhdGlvbmQCAw8PFgIfAwVOL3Jlc2VhcmNoL2VmZmVjdHMtb2YtZWFybHktYW5kLWRlbGF5ZWQtbGFzZXItYXBwbGljYXRpb24tb24tbmVydmUtcmVnZW5lcmF0aW9uZGQCAw9kFgQCAQ8WAh8BBUlMb3ctTGV2ZWwgTGFzZXIgVHJlYXRtZW50IENhbiBSZWR1Y2UgRWRlbWEgaW4gU2Vjb25kIERlZ3JlZSBBbmtsZSBTcHJhaW5zZAIDDw8WAh8DBVIvcmVzZWFyY2gvbG93bGV2ZWwtbGFzZXItdHJlYXRtZW50LWNhbi1yZWR1Y2UtZWRlbWEtaW4tc2Vjb25kLWRlZ3JlZS1hbmtsZS1zcHJhaW5zZGQCBw8PFgYfDgUQVmlldyBBbGwgU3R1ZGllcx8BBRBWaWV3IEFsbCBTdHVkaWVzHwMFCS9yZXNlYXJjaGRkAgMPZBYCAgEPDxYGHwUFImRhc2hib2FyZC1pdGVtIGRhc2hib2FyZC1wcm90b2NvbHMfBgICHwdnZBYIAgEPFgIfAQUJUHJvdG9jb2xzZAIDDw8WAh8HZ2QWAgIBDw8WBB8FBQRyZXNzHwYCAhYMHwgFOC9+L21lZGlhL2xhc2VyLXUvaW1hZ2VzL3NlY3Rpb24taWNvbnMvaWNvbl9wcm90b2NvbHMucG5nHwkFAzEwMB8KBQMxMTgfCwUDMTQ1HwwFAzEyOB8NBQMxNDVkAgUPFCsAAg8WBB8EZx8CAgNkZBYCZg9kFgYCAQ9kFgQCAQ8WAh8BBRdMdW1iYXIgUmFkaWN1bG9wYXRoeSBWMmQCAw8PFgIfAwUiL3Byb3RvY29scy9sdW1iYXItcmFkaWN1bG9wYXRoeS12MmRkAgIPZBYEAgEPFgIfAQUQR29sZmVycyBFbGJvdyBWMmQCAw8PFgIfAwUbL3Byb3RvY29scy9nb2xmZXJzLWVsYm93LXYyZGQCAw9kFgQCAQ8WAh8BBRhQaXJpZm9ybWlzIFN5bmRyb21lIFYyLjBkAgMPDxYCHwMFIS9wcm90b2NvbHMvcGlyaWZvcm1pcy1zeW5kcm9tZS12MmRkAgcPDxYGHw4FElZpZXcgQWxsIFByb3RvY29scx8BBRJWaWV3IEFsbCBQcm90b2NvbHMfAwUKL3Byb3RvY29sc2RkAgQPZBYCAgEPDxYGHwUFH2Rhc2hib2FyZC1pdGVtIGRhc2hib2FyZC12aWRlb3MfBgICHwdoZBYIAgEPFgIfAQUGVmlkZW9zZAIDDw8WAh8HZ2QWAgIBDw8WBB8FBQRyZXNzHwYCAhYMHwgFNS9+L21lZGlhL2xhc2VyLXUvaW1hZ2VzL3NlY3Rpb24taWNvbnMvaWNvbl92aWRlb3MucG5nHwkFAzEyMR8KBQMxMTEfCwUDMTQ1HwwFAzEyOB8NBQMxNDVkAgUPFCsAAg8WBB8EZx8CAv////8PZGRkAgcPDxYGHw4FD1ZpZXcgQWxsIFZpZGVvcx8BBQ9WaWV3IEFsbCBWaWRlb3MfAwUHL3ZpZGVvc2RkAgMPFCsAAg8WBB8EZx8CAgNkZBYCZg9kFgYCAQ9kFgQCAQ9kFgICBQ8UKwACDxYEHwRnHwIC/////w9kZGQCAw8PFgYfBQVGZGFzaGJvYXJkLXVwY29taW5nLWl0ZW0gZGFzaGJvYXJkLXVwY29taW5nIGRhc2hib2FyZC11cGNvbWluZy13ZWJpbmFycx8GAgIfB2dkFgQCAQ8WAh8BBRBVcGNvbWluZyBXZWJpbmFyZAIDD2QWAgIBDw8WBh8DBUhodHRwczovL3JlZ2lzdGVyLmdvdG93ZWJpbmFyLmNvbS9yZWdpc3Rlci8zNjM2OTY2MTA3MzUyMzM5MDM3P3NvdXJjZT1sdHUfDmUeBlRhcmdldGVkZAICD2QWBAIBD2QWAgIFDxQrAAIPFgQfBGcfAgL/////D2RkZAIDDw8WBh8FBURkYXNoYm9hcmQtdXBjb21pbmctaXRlbSBkYXNoYm9hcmQtdXBjb21pbmcgZGFzaGJvYXJkLXVwY29taW5nLWV2ZW50cx8GAgIfB2dkFgQCAQ8WAh8BBQ9TdWJzY3JpYmUgVG9kYXlkAgMPZBYCAgEPDxYGHwMFK2h0dHBzOi8vd3d3Lmxhc2VydGhlcmFweXUub3JnL3N1YnNjcmlwdGlvbnMfDmUfD2VkZAIDD2QWBAIBD2QWAgIFDxQrAAIPFgQfBGcfAgL/////D2RkZAIDDw8WBh8FBURkYXNoYm9hcmQtdXBjb21pbmctaXRlbSBkYXNoYm9hcmQtdXBjb21pbmcgZGFzaGJvYXJkLXVwY29taW5nLWV2ZW50cx8GAgIfB2dkFgQCAQ8WAh8BBRFQcm90b2NvbEJ1aWxkLmNvbWQCAw9kFgICAQ8PFgYfAwUaaHR0cHM6Ly9wcm90b2NvbGJ1aWxkLmNvbS8fDmUfD2VkZAIDD2QWAmYPZBYIAgEPFCsAAg8WBB8EZx8CAgJkZBYCZg9kFgYCAQ8WAh8BBR1AIDIwMjUgTGFzZXJUaGVyYXB5VS5vcmcsIExMQ2QCAw9kFgICAQ8PFgYfAQUSVGVybXMgJiBDb25kaXRpb25zHw4FElRlcm1zICYgQ29uZGl0aW9ucx8DBRUvdGVybXMtYW5kLWNvbmRpdGlvbnNkZAIED2QWAgIBDw8WBh8BBQ5Qcml2YWN5IFBvbGljeR8OBQ5Qcml2YWN5IFBvbGljeR8DBQ8vcHJpdmFjeS1wb2xpY3lkZAIDDw8WBh8DBSZodHRwczovL3d3dy5mYWNlYm9vay5jb20vTGFzZXJUaGVyYXB5VR8OBRVGb2xsb3cgVXMgb24gRmFjZWJvb2sfAQUVRm9sbG93IFVzIG9uIEZhY2Vib29rZGQCBQ8PFgYfAwUhaHR0cHM6Ly90d2l0dGVyLmNvbS9MYXNlclRoZXJhcHlVHw4FFEZvbGxvdyBVcyBvbiBUd2l0dGVyHwEFFEZvbGxvdyBVcyBvbiBUd2l0dGVyZGQCBw8WAh8HaGQCCQ9kFgJmD2QWCgIDDxYCHwEFMFBsZWFzZSBzaWduIGluIG9yIHJlZ2lzdGVyIHRvIHZpZXcgdGhpcyBjb250ZW50LmQCBQ8WAh8BBSNBbHJlYWR5IGEgcmVnaXN0ZXJlZDxicj4gc2l0ZSB1c2VyP2QCBw8PFgYfDgUMU2lnbiBpbiBoZXJlHwEFDFNpZ24gaW4gaGVyZR8DBRMvYWNjb3VudC9sb2ctaW4/cj0vZGQCCQ8WAh8BBR9Ob3QgYSByZWdpc3RlcmVkPGJyPiBzaXRlIHVzZXI/ZAILDw8WBh8OBQ1SZWdpc3RlciBIZXJlHwEFDVJlZ2lzdGVyIEhlcmUfAwUZL2FjY291bnQvcmVnaXN0cmF0aW9uP3I9L2RkAgsPZBYCZg9kFgJmD2QWCAIBDxYCHwEFDldlJ3JlIFNvcnJ5Li4uZAIDDxYCHwEF9AE8cD5EdWUgdG8gdGhlIHByb3ByaWV0YXJ5IG5hdHVyZSBvZiB0aGlzIGluZm9ybWF0aW9uLCB5b3UgYXJlIG5vdCBhdXRob3JpemVkIHRvIGFjY2VzcyB0aGlzIHBhZ2UuPC9wPgo8cD5Ib3dldmVyLCBvdXIgPGEgaHJlZj0iL3Jlc2VhcmNoIj5yZXNlYXJjaDwvYT4gc2VjdGlvbiBpbmNsdWRlcyBpbmZvcm1hdGlvbiB0aGF0IGlzIGF2YWlsYWJsZSB0byBhbGwgbWVtYmVycywgYW5kIGlzIHVwZGF0ZWQgZnJlcXVlbnRseS48L3A+ZAIFDw8WBh8OBQ5HbyBUbyBSZXNlYXJjaB8BBQ5HbyBUbyBSZXNlYXJjaB8DBQkvcmVzZWFyY2hkZAIHDw8WBh8OBQRCYWNrHwEFBEJhY2sfAwUBL2RkAg0PZBYCZg9kFgJmD2QWCAIBDxYCHwEFG0xvZ2luL1JlZ2lzdHJhdGlvbiBSZXF1aXJlZGQCAw8WAh8BBewBPHA+WW91IG11c3QgYmUgbG9nZ2VkIGluIHRvIGFjY2VzcyBMYXNlciBUaGVyYXB5IFUgY29udGVudC4gSWYgeW91IGFyZSBhIHJlZ2lzdGVyZWQgdXNlciwgcGxlYXNlIGVudGVyIHlvdXIgdXNlcm5hbWUgYW5kIHBhc3N3b3JkIGJlbG93LiAgT3IsIGNsaWNrIG9uICI8YSBocmVmPSIvYWNjb3VudC9yZWdpc3RyYXRpb24iPnJlZ2lzdGVyPC9hPiIgaWYgeW91IGFyZSBuZXcgdG8gTGFzZXIgVGhlcmFweSBVLjwvcD5kAgcPDxYGHw4FDFNpZ24gaW4gaGVyZR8BBQxTaWduIGluIGhlcmUfAwUTL2FjY291bnQvbG9nLWluP3I9L2RkAgsPDxYGHw4FDVJlZ2lzdGVyIEhlcmUfAQUNUmVnaXN0ZXIgSGVyZR8DBRkvYWNjb3VudC9yZWdpc3RyYXRpb24/cj0vZGQYCgUuY29udGVudF8wJGNvbnRyb2xzXzEkbHZDb2x1bW5PbmUkY3RybDEkbHZJdGVtcw8UKwAOZGRkZGRkZBQrAANkZGQCA2RkZGYC/////w9kBS5jb250ZW50XzAkY29udHJvbHNfMSRsdkNvbHVtbk9uZSRjdHJsMyRsdkl0ZW1zD2dkBS5jb250ZW50XzAkY29udHJvbHNfMSRsdkNvbHVtblR3byRjdHJsMCRsdkl0ZW1zD2dkBSBjb250ZW50XzAkY29udHJvbHNfMSRsdkNvbHVtblR3bw8UKwAOZGRkZGRkZBQrAANkZGQCA2RkZGYC/////w9kBS5jb250ZW50XzAkY29udHJvbHNfMSRsdkNvbHVtbk9uZSRjdHJsMiRsdkl0ZW1zDxQrAA5kZGRkZGRkFCsAA2RkZAIDZGRkZgL/////D2QFLmNvbnRlbnRfMCRjb250cm9sc18xJGx2Q29sdW1uVHdvJGN0cmwyJGx2SXRlbXMPZ2QFLmNvbnRlbnRfMCRjb250cm9sc18xJGx2Q29sdW1uT25lJGN0cmwwJGx2SXRlbXMPFCsADmRkZGRkZGQUKwADZGRkAgNkZGRmAv////8PZAUgY29udGVudF8wJGNvbnRyb2xzXzEkbHZDb2x1bW5PbmUPFCsADmRkZGRkZGQ8KwAEAAIEZGRkZgL/////D2QFLmNvbnRlbnRfMCRjb250cm9sc18xJGx2Q29sdW1uVHdvJGN0cmwxJGx2SXRlbXMPZ2QFIWNvbnRlbnRfMCRjdGwwMCRsdkZvb3RlckNvcHlyaWdodA8UKwAOZGRkZGRkZBQrAAJkZAICZGRkZgL/////D2SDWG917GBIa2L/8b76gSPkGTizi1k5JAAefvOjIWBrog==" />
         </div>
@@ -125,7 +129,14 @@
                         <li class="header-account-item header-account-newsletter"><a href="/newsletter-signup" title="Newsletter" class="header-account-link">Newsletter</a></li>
                         <li class="header-account-item header-account-loginlogout">
 
-                            <a href="/account/log-in" title="" class="header-account-link header-account-login">Log In/Register</a>
+                            @if (isMemberLoggedIn)
+                            {
+                                <a href="/members/my-profile" title="@memberDisplayName" class="header-account-link header-account-login">@memberDisplayName</a>
+                            }
+                            else
+                            {
+                                <a href="/members/log-in" title="Log In/Register" class="header-account-link header-account-login">Log In/Register</a>
+                            }
 
                         </li>
                     </ul>
@@ -162,7 +173,7 @@
                                     <a class="btn btn-blue closeIt" href="#">Continue Shopping</a>
 
 
-                                    <a class="btn btn-green checkout" href="/account/log-in?r=cart" style="display:none;">Check Out</a>
+                                    <a class="btn btn-green checkout" href="/members/log-in?r=cart" style="display:none;">Check Out</a>
 
                                 </div>
                             </div>
@@ -220,7 +231,7 @@
 
                                 <li><a href="/what-is-laser-therapy" title="What is Laser Therapy">What is Laser Therapy</a></li>
 
-                                <li><a href="/account/my-profile" title="My Profile">My Profile</a></li>
+                                <li><a href="/members/my-profile" title="My Profile">My Profile</a></li>
 
                             </ul>
                         </li>
@@ -287,7 +298,7 @@
                                     <div class="btnWrap">
                                         <a class="btn btn-blue closeIt" href="#">Continue Shopping</a>
 
-                                        <a href="/account/log-in" title="Log In/Register" class="btn btn-green checkout">Login/Register to complete Purchase</a>
+                                        <a href="/members/log-in" title="Log In/Register" class="btn btn-green checkout">Login/Register to complete Purchase</a>
 
 
 
@@ -298,7 +309,14 @@
                         <ul class="header-account-nav">
                             <!--<li class="header-account-item header-account-newsletter"><a href="/newsletter-signup" title="Newsletter Sign Up" class="header-account-link">Newsletter Sign Up</a></li>-->
                             <li class="header-account-item header-account-loginlogout">
-                                <a href="/account/log-in" title="Log In/Register" class="header-account-link header-account-login">Log In/Register</a>
+                                @if (isMemberLoggedIn)
+                                {
+                                    <a href="/members/my-profile" title="@memberDisplayName" class="header-account-link header-account-login">@memberDisplayName</a>
+                                }
+                                else
+                                {
+                                    <a href="/members/log-in" title="Log In/Register" class="header-account-link header-account-login">Log In/Register</a>
+                                }
 
                             </li>
                         </ul>
@@ -381,7 +399,7 @@
 
                             <li class="site-quick-nav-link"><a title="What is Laser Therapy" href="/what-is-laser-therapy">What is Laser Therapy</a></li>
 
-                            <li class="site-quick-nav-link"><a title="My Profile" href="/account/my-profile">My Profile</a></li>
+                            <li class="site-quick-nav-link"><a title="My Profile" href="/members/my-profile">My Profile</a></li>
 
                         </ul>
                     </nav>
@@ -561,12 +579,12 @@
 
                     <div class="modalOption">
                         <h2>Already a registered<br> site user?</h2>
-                        <a id="ctl02_hlLogin" title="Sign in here" class="btn btn-green" href="/account/log-in?r=/">Sign in here</a>
+                        <a id="ctl02_hlLogin" title="Sign in here" class="btn btn-green" href="/members/log-in?r=/">Sign in here</a>
                     </div>
 
                     <div class="modalOption">
                         <h2>Not a registered<br> site user?</h2>
-                        <a id="ctl02_hlRegister" title="Register Here" class="btn btn-green" href="/account/registration?r=/">Register Here</a>
+                        <a id="ctl02_hlRegister" title="Register Here" class="btn btn-green" href="/members/registration?r=/">Register Here</a>
                     </div>
 
                 </div>
@@ -601,16 +619,16 @@
                 <div class="fixWrap">
                     <h1>Login/Registration Required</h1>
 
-                    <p>You must be logged in to access Laser Therapy U content. If you are a registered user, please enter your username and password below.  Or, click on "<a href="/account/registration">register</a>" if you are new to Laser Therapy U.</p>
+                    <p>You must be logged in to access Laser Therapy U content. If you are a registered user, please enter your username and password below.  Or, click on "<a href="/members/registration">register</a>" if you are new to Laser Therapy U.</p>
 
                     <div class="modalOption">
                         <h2></h2>
-                        <a id="ctl04_hlLogin" title="Sign in here" class="btn btn-green" href="/account/log-in?r=/">Sign in here</a>
+                        <a id="ctl04_hlLogin" title="Sign in here" class="btn btn-green" href="/members/log-in?r=/">Sign in here</a>
                     </div>
 
                     <div class="modalOption">
                         <h2></h2>
-                        <a id="ctl04_hlRegister" title="Register Here" class="btn btn-green" href="/account/registration?r=/">Register Here</a>
+                        <a id="ctl04_hlRegister" title="Register Here" class="btn btn-green" href="/members/registration?r=/">Register Here</a>
                     </div>
                 </div>
             </div>
@@ -1154,7 +1172,6 @@
 
         <div id="toTop"><i class="fa fa-arrow-up" aria-hidden="true"></i> Back To Top</div>
 
-    </form>
     <script>
         Modernizr.testStyles(" #modernizr div:nth-child(3n){width:10px;} ", function (elem, rule) {
             var bool = false, divs = elem.getElementsByTagName("div");
@@ -1245,3 +1262,6 @@
     <script src="/clean-assets/js/swiffy-slider.min.js" asp-append-version="true"></script>
 </body>
 </html>*@
+
+
+

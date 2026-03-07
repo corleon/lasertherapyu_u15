@@ -1,28 +1,26 @@
-﻿@inherits UmbracoViewPage<BlockListItem>
+@inherits UmbracoViewPage<BlockListItem>
+
 @using Clean.Core.Helpers
 @using Umbraco.Cms.Core.Models.Blocks
 
 @{
-    var row = Model.Content as VideoRow;
-    var settings = Model.Settings as VideoRowSettings;
-    if (settings?.Hide ?? false) { return; }
-    if (string.IsNullOrWhiteSpace(row.VideoUrl)) { return; }
+    var row = Model.Content;
+    var settings = Model.Settings;
+    if (settings?.Value<bool>("hide") ?? false) { return; }
 
-    var spacingClasses = "";
-    if (Model.Settings is ISpacingProperties spacing)
-    {
-        spacingClasses = Clean.Core.Helpers.SpacingHelper.GetSpacingClasses(spacing.PaddingTop, spacing.PaddingBottom, spacing.PaddingLeft, spacing.PaddingRight, spacing.MarginTop, spacing.MarginBottom, spacing.MarginLeft, spacing.MarginRight);
-    }
+    var videoUrl = row?.Value<string>("videoUrl");
+    var caption = row?.Value<string>("caption");
+    if (string.IsNullOrWhiteSpace(videoUrl)) { return; }
 
-    var videoId = VideoUrlHelper.GetVideoId(row.VideoUrl);
+    var videoId = VideoUrlHelper.GetVideoId(videoUrl);
 }
 
-<div class="row clearfix @(spacingClasses)">
+<div class="row clearfix">
     <div class="col-md-12 column">
         <div class="youtube-player" data-id="@videoId"></div>
-        @if (!string.IsNullOrWhiteSpace(row.Caption))
+        @if (!string.IsNullOrWhiteSpace(caption))
         {
-            <p class="caption video-caption">@row.Caption</p>
+            <p class="caption video-caption">@caption</p>
         }
     </div>
 </div>
