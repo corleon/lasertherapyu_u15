@@ -2,6 +2,7 @@
 @using LTU_U15.Models.Membership
 @using System.Text.Json
 @using Umbraco.Extensions
+@inject Umbraco.Cms.Core.Security.IMemberManager MemberManager
 
 @{
     Layout = "master.cshtml";
@@ -16,8 +17,11 @@
     var contentRows = Model.Value<Umbraco.Cms.Core.Models.Blocks.BlockListModel>("contentRows");
     var isMembershipPage = Model.AncestorsOrSelf().Any(x => x.Name.Equals("Members", StringComparison.OrdinalIgnoreCase));
     var pageSlug = (Model.UrlSegment ?? string.Empty).ToLowerInvariant();
+    var returnUrlQuery = Context?.Request?.Query["r"].ToString();
+    var currentMember = await MemberManager.GetCurrentMemberAsync();
+    var isMemberLoggedIn = currentMember != null;
 
-    var registerModel = new RegisterMemberViewModel();
+    var registerModel = new RegisterMemberViewModel { ReturnUrl = returnUrlQuery };
     if (TempData.TryGetValue("RegistrationModel", out var registrationModelRaw) && registrationModelRaw is string registrationModelJson)
     {
         try
@@ -28,6 +32,14 @@
         {
             registerModel = new RegisterMemberViewModel();
         }
+    }
+}
+
+@{
+    if (isMembershipPage && pageSlug == "members")
+    {
+        Context.Response.Redirect("/members/my-profile/");
+        return;
     }
 }
 
@@ -47,11 +59,25 @@
     <article class="content-article">
         @if (isMembershipPage && pageSlug == "log-in")
         {
-            @await Html.PartialAsync("~/Views/Partials/membership/loginForm.cshtml", new LoginMemberViewModel())
+            if (isMemberLoggedIn)
+            {
+                @await Html.PartialAsync("~/Views/Partials/membership/myProfile.cshtml")
+            }
+            else
+            {
+                @await Html.PartialAsync("~/Views/Partials/membership/loginForm.cshtml", new LoginMemberViewModel { ReturnUrl = returnUrlQuery })
+            }
         }
         else if (isMembershipPage && pageSlug == "registration")
         {
-            @await Html.PartialAsync("~/Views/Partials/membership/registerForm.cshtml", registerModel)
+            if (isMemberLoggedIn)
+            {
+                @await Html.PartialAsync("~/Views/Partials/membership/myProfile.cshtml")
+            }
+            else
+            {
+                @await Html.PartialAsync("~/Views/Partials/membership/registerForm.cshtml", registerModel)
+            }
         }
         else if (isMembershipPage && pageSlug == "forgot-password")
         {
@@ -63,7 +89,14 @@
         }
         else if (isMembershipPage && pageSlug == "my-profile")
         {
-            @await Html.PartialAsync("~/Views/Partials/membership/myProfile.cshtml")
+            if (isMemberLoggedIn)
+            {
+                @await Html.PartialAsync("~/Views/Partials/membership/myProfile.cshtml")
+            }
+            else
+            {
+                @await Html.PartialAsync("~/Views/Partials/membership/loginForm.cshtml", new LoginMemberViewModel { ReturnUrl = Model.Url() })
+            }
         }
         else if (!string.IsNullOrWhiteSpace(contentHtml))
         {

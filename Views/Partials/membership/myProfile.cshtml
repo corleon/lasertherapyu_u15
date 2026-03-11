@@ -1,12 +1,628 @@
-<section class="content-form profile">
-    <div class="form form-column form-column-1">
-        <h2>Welcome to your member cabinet.</h2>
-        <p>Hello, @(User?.Identity?.Name ?? "member")!</p>
-        <p>Your profile area is ready. Next step we can add real member data here.</p>
+@using LTU_U15.Services.Commerce
+@inject IContentPurchaseService PurchaseService
+@{
+    var purchasedItems = await PurchaseService.GetCurrentMemberPurchasedContentAsync();
+    var recentlyViewedItems = await PurchaseService.GetCurrentMemberRecentlyViewedContentAsync();
+    var memberName = User?.Identity?.Name ?? "member";
+    const int previewCount = 6;
+    var purchasedPreview = purchasedItems.Take(previewCount).ToList();
+    var purchasedOverflow = purchasedItems.Skip(previewCount).ToList();
+    var recentPreview = recentlyViewedItems.Take(previewCount).ToList();
+    var recentOverflow = recentlyViewedItems.Skip(previewCount).ToList();
+}
 
-        <form method="post" action="/account/log-out" style="margin-top:16px;">
+<section class="ltu-member-hub">
+    <div class="ltu-member-hub__hero">
+        <div class="ltu-member-hub__hero-copy">
+            <p class="ltu-member-hub__eyebrow">Member Dashboard</p>
+            <h2 class="ltu-member-hub__headline">Your learning library</h2>
+            <p class="ltu-member-hub__name">@memberName</p>
+            <p class="ltu-member-hub__description">Track paid access, reopen purchased materials, and jump back into recently viewed content from one place.</p>
+        </div>
+
+        <div class="ltu-member-hub__stats">
+            <div class="ltu-member-hub__stat">
+                <span class="ltu-member-hub__stat-label">Purchased</span>
+                <strong class="ltu-member-hub__stat-value">@purchasedItems.Count</strong>
+            </div>
+            <div class="ltu-member-hub__stat">
+                <span class="ltu-member-hub__stat-label">Recently Viewed</span>
+                <strong class="ltu-member-hub__stat-value">@recentlyViewedItems.Count</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="ltu-member-hub__grid">
+        <div class="ltu-member-hub__panel ltu-member-hub__panel--wide">
+            <div class="ltu-member-hub__panel-header">
+                <div>
+                    <p class="ltu-member-hub__panel-kicker">Purchases</p>
+                    <h3 class="ltu-member-hub__panel-title">Purchased Products</h3>
+                </div>
+                <p class="ltu-member-hub__panel-copy">Every paid item stays available here for quick re-entry.</p>
+            </div>
+
+            @if (purchasedItems.Count == 0)
+            {
+                <div class="ltu-member-hub__empty">
+                    <p>You have no purchased products yet.</p>
+                </div>
+            }
+            else
+            {
+                <div class="ltu-member-hub__purchase-list">
+                    @foreach (var item in purchasedPreview)
+                    {
+                        <article class="ltu-member-hub__purchase-card">
+                            <div class="ltu-member-hub__purchase-top">
+                                <div>
+                                    <span class="ltu-member-hub__badge">Purchased</span>
+                                    <h4 class="ltu-member-hub__purchase-title"><a href="@item.Url">@item.Name</a></h4>
+                                </div>
+                                <a href="@item.Url" class="ltu-action ltu-action--primary">Open</a>
+                            </div>
+
+                            <dl class="ltu-member-hub__purchase-meta">
+                                <div>
+                                    <dt>Price</dt>
+                                    <dd>@(item.PricePaid.HasValue ? $"${item.PricePaid.Value:0.00}" : "-")</dd>
+                                </div>
+                                <div>
+                                    <dt>Purchased</dt>
+                                    <dd>@item.PurchasedAtUtc.ToLocalTime().ToString("M/d/yyyy")</dd>
+                                </div>
+                                <div class="ltu-member-hub__purchase-meta-full">
+                                    <dt>Payment ID</dt>
+                                    <dd>@(string.IsNullOrWhiteSpace(item.PaymentIntentId) ? "-" : item.PaymentIntentId)</dd>
+                                </div>
+                            </dl>
+                        </article>
+                    }
+                </div>
+
+                @if (purchasedOverflow.Count > 0)
+                {
+                    <div class="ltu-member-hub__purchase-list ltu-member-hub__overflow" id="memberPurchasedOverflow" hidden>
+                        @foreach (var item in purchasedOverflow)
+                        {
+                            <article class="ltu-member-hub__purchase-card">
+                                <div class="ltu-member-hub__purchase-top">
+                                    <div>
+                                        <span class="ltu-member-hub__badge">Purchased</span>
+                                        <h4 class="ltu-member-hub__purchase-title"><a href="@item.Url">@item.Name</a></h4>
+                                    </div>
+                                    <a href="@item.Url" class="ltu-action ltu-action--primary">Open</a>
+                                </div>
+
+                                <dl class="ltu-member-hub__purchase-meta">
+                                    <div>
+                                        <dt>Price</dt>
+                                        <dd>@(item.PricePaid.HasValue ? $"${item.PricePaid.Value:0.00}" : "-")</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Purchased</dt>
+                                        <dd>@item.PurchasedAtUtc.ToLocalTime().ToString("M/d/yyyy")</dd>
+                                    </div>
+                                    <div class="ltu-member-hub__purchase-meta-full">
+                                        <dt>Payment ID</dt>
+                                        <dd>@(string.IsNullOrWhiteSpace(item.PaymentIntentId) ? "-" : item.PaymentIntentId)</dd>
+                                    </div>
+                                </dl>
+                            </article>
+                        }
+                    </div>
+
+                    <div class="ltu-member-hub__overflow-toggle-wrap">
+                        <button
+                            type="button"
+                            class="ltu-member-hub__overflow-toggle"
+                            data-target="memberPurchasedOverflow"
+                            data-more-label="Show @purchasedOverflow.Count more purchases"
+                            data-less-label="Show fewer purchases">
+                            Show @purchasedOverflow.Count more purchases
+                        </button>
+                    </div>
+                }
+            }
+        </div>
+
+        <aside class="ltu-member-hub__panel">
+            <div class="ltu-member-hub__panel-header ltu-member-hub__panel-header--stacked">
+                <div>
+                    <p class="ltu-member-hub__panel-kicker">Activity</p>
+                    <h3 class="ltu-member-hub__panel-title">Recently Viewed</h3>
+                </div>
+                <p class="ltu-member-hub__panel-copy">Your latest webinar, protocol, research, and video visits.</p>
+            </div>
+
+            @if (recentlyViewedItems.Count == 0)
+            {
+                <div class="ltu-member-hub__empty">
+                    <p>You have not viewed any learning materials yet.</p>
+                </div>
+            }
+            else
+            {
+                <div class="ltu-member-hub__recent-list">
+                    @foreach (var item in recentPreview)
+                    {
+                        <a href="@item.Url" class="ltu-member-hub__recent-item">
+                            <span class="ltu-member-hub__recent-section">@item.SectionName</span>
+                            <span class="ltu-member-hub__recent-title">@item.Name</span>
+                            <span class="ltu-member-hub__recent-date">@item.ViewedAtUtc.ToLocalTime().ToString("M/d/yyyy")</span>
+                        </a>
+                    }
+                </div>
+
+                @if (recentOverflow.Count > 0)
+                {
+                    <div class="ltu-member-hub__recent-list ltu-member-hub__overflow" id="memberRecentOverflow" hidden>
+                        @foreach (var item in recentOverflow)
+                        {
+                            <a href="@item.Url" class="ltu-member-hub__recent-item">
+                                <span class="ltu-member-hub__recent-section">@item.SectionName</span>
+                                <span class="ltu-member-hub__recent-title">@item.Name</span>
+                                <span class="ltu-member-hub__recent-date">@item.ViewedAtUtc.ToLocalTime().ToString("M/d/yyyy")</span>
+                            </a>
+                        }
+                    </div>
+
+                    <div class="ltu-member-hub__overflow-toggle-wrap">
+                        <button
+                            type="button"
+                            class="ltu-member-hub__overflow-toggle"
+                            data-target="memberRecentOverflow"
+                            data-more-label="Show @recentOverflow.Count more items"
+                            data-less-label="Show fewer items">
+                            Show @recentOverflow.Count more items
+                        </button>
+                    </div>
+                }
+            }
+        </aside>
+    </div>
+
+    <div class="ltu-member-hub__actions">
+        <form method="post" action="/account/log-out">
             @Html.AntiForgeryToken()
-            <button type="submit" class="btn btn-blue">Log Out</button>
+            <button type="submit" class="ltu-action ltu-action--primary">Log Out</button>
         </form>
     </div>
 </section>
+
+<script>
+    (function () {
+        var toggles = document.querySelectorAll(".ltu-member-hub__overflow-toggle");
+        toggles.forEach(function (toggle) {
+            toggle.addEventListener("click", function () {
+                var targetId = toggle.getAttribute("data-target");
+                if (!targetId) {
+                    return;
+                }
+
+                var target = document.getElementById(targetId);
+                if (!target) {
+                    return;
+                }
+
+                var isHidden = target.hasAttribute("hidden");
+                if (isHidden) {
+                    target.removeAttribute("hidden");
+                    toggle.textContent = toggle.getAttribute("data-less-label") || "Show fewer";
+                    toggle.classList.add("is-open");
+                } else {
+                    target.setAttribute("hidden", "hidden");
+                    toggle.textContent = toggle.getAttribute("data-more-label") || "Show more";
+                    toggle.classList.remove("is-open");
+                }
+            });
+        });
+    })();
+</script>
+
+<style>
+    .ltu-member-hub,
+    .ltu-member-hub * {
+        box-sizing: border-box;
+    }
+
+    .ltu-member-hub p,
+    .ltu-member-hub h2,
+    .ltu-member-hub h3,
+    .ltu-member-hub h4,
+    .ltu-member-hub dl,
+    .ltu-member-hub dt,
+    .ltu-member-hub dd {
+        margin: 0;
+    }
+
+    .ltu-member-hub {
+        display: block;
+        width: 100%;
+        margin: 0 0 42px 0;
+    }
+
+    .ltu-member-hub__hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.7fr) minmax(260px, .9fr);
+        gap: 22px;
+        margin: 0 0 24px 0;
+        padding: 26px;
+        border: 1px solid #c7ccd1;
+        background:
+            radial-gradient(circle at top right, rgba(43, 124, 191, 0.20), transparent 32%),
+            linear-gradient(135deg, #545654 0%, #3f413f 58%, #006738 100%);
+        box-shadow: 0 18px 36px rgba(52, 53, 52, 0.18);
+    }
+
+    .ltu-member-hub__eyebrow {
+        margin-bottom: 10px;
+        color: rgba(255,255,255,.78);
+        font-size: 0.78em;
+        font-weight: 700;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+    }
+
+    .ltu-member-hub__headline {
+        margin-bottom: 10px;
+        color: #fff;
+        font-family: 'Kameron', serif;
+        font-size: 2.2em;
+        font-weight: 700;
+        line-height: 1.08;
+    }
+
+    .ltu-member-hub__name {
+        margin-bottom: 12px;
+        color: #f3f6f8;
+        font-size: 1.1em;
+        font-weight: 700;
+        word-break: break-word;
+    }
+
+    .ltu-member-hub__description {
+        max-width: 560px;
+        color: rgba(255,255,255,.84);
+        line-height: 1.65;
+    }
+
+    .ltu-member-hub__stats {
+        display: grid;
+        gap: 14px;
+        align-content: stretch;
+    }
+
+    .ltu-member-hub__stat {
+        padding: 18px 20px;
+        border: 1px solid rgba(255,255,255,.18);
+        background: rgba(255,255,255,.10);
+        backdrop-filter: blur(3px);
+    }
+
+    .ltu-member-hub__stat-label {
+        display: block;
+        margin-bottom: 8px;
+        color: rgba(255,255,255,.72);
+        font-size: 0.78em;
+        font-weight: 700;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+    }
+
+    .ltu-member-hub__stat-value {
+        display: block;
+        color: #fff;
+        font-family: 'Kameron', serif;
+        font-size: 2.25em;
+        line-height: 1;
+    }
+
+    .ltu-member-hub__grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.45fr) minmax(280px, .9fr);
+        gap: 24px;
+        align-items: start;
+    }
+
+    .ltu-member-hub__panel {
+        padding: 24px;
+        border: 1px solid #d8dee3;
+        background: linear-gradient(180deg, #ffffff 0%, #fbfcfc 100%);
+        box-shadow: 0 14px 30px rgba(57, 67, 76, 0.08);
+    }
+
+    .ltu-member-hub__panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 18px;
+        margin-bottom: 18px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #e4e9ed;
+    }
+
+    .ltu-member-hub__panel-header--stacked {
+        display: block;
+    }
+
+    .ltu-member-hub__panel-kicker {
+        margin-bottom: 6px;
+        color: #c11e2d;
+        font-size: 0.76em;
+        font-weight: 700;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+    }
+
+    .ltu-member-hub__panel-title {
+        color: #545654;
+        font-family: 'Kameron', serif;
+        font-size: 1.55em;
+        font-weight: 700;
+        line-height: 1.15;
+    }
+
+    .ltu-member-hub__panel-copy {
+        max-width: 320px;
+        color: #65727d;
+        line-height: 1.55;
+        text-align: right;
+    }
+
+    .ltu-member-hub__panel-header--stacked .ltu-member-hub__panel-copy {
+        max-width: none;
+        margin-top: 10px;
+        text-align: left;
+    }
+
+    .ltu-member-hub__empty {
+        padding: 20px 22px;
+        border: 1px dashed #c8d2d9;
+        background: #f7fafb;
+        color: #5a646c;
+        line-height: 1.6;
+    }
+
+    .ltu-member-hub__purchase-list {
+        display: grid;
+        gap: 16px;
+    }
+
+    .ltu-member-hub__overflow {
+        margin-top: 16px;
+    }
+
+    .ltu-member-hub__overflow[hidden] {
+        display: none !important;
+    }
+
+    .ltu-member-hub__overflow-toggle-wrap {
+        margin-top: 18px;
+    }
+
+    .ltu-member-hub__overflow-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        padding: 0 16px;
+        border: 1px solid #cdd8df;
+        background: linear-gradient(180deg, #f7fafc 0%, #eaf1f5 100%);
+        color: #30414d;
+        font-family: 'Source Sans Pro', sans-serif;
+        font-size: 0.9em;
+        font-weight: 700;
+        letter-spacing: .04em;
+        cursor: pointer;
+        transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
+    }
+
+    .ltu-member-hub__overflow-toggle:hover {
+        border-color: #b8c8d3;
+        background: linear-gradient(180deg, #f1f6f9 0%, #e1ebf0 100%);
+        transform: translateY(-1px);
+    }
+
+    .ltu-member-hub__purchase-card {
+        padding: 18px;
+        border: 1px solid #dce3e8;
+        border-left: 5px solid #006738;
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(57, 67, 76, 0.06);
+    }
+
+    .ltu-member-hub__purchase-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .ltu-member-hub__badge {
+        display: inline-flex;
+        align-items: center;
+        margin-bottom: 10px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(0,103,56,.10);
+        color: #006738;
+        font-size: 0.78em;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .ltu-member-hub__purchase-title {
+        color: #545654;
+        font-family: 'Kameron', serif;
+        font-size: 1.28em;
+        line-height: 1.28;
+    }
+
+    .ltu-member-hub__purchase-title a,
+    .ltu-member-hub__purchase-title a:visited {
+        color: #1f2d38;
+        text-decoration: none;
+    }
+
+    .ltu-member-hub__purchase-title a:hover {
+        color: #0065a1;
+        text-decoration: none;
+    }
+
+    .ltu-member-hub__purchase-meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .ltu-member-hub__purchase-meta div {
+        padding: 14px;
+        border: 1px solid #edf1f4;
+        background: #f8fafb;
+    }
+
+    .ltu-member-hub__purchase-meta-full {
+        grid-column: 1 / -1;
+    }
+
+    .ltu-member-hub__purchase-meta dt {
+        margin-bottom: 6px;
+        color: #7a8790;
+        font-size: 0.78em;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .ltu-member-hub__purchase-meta dd {
+        color: #24333f;
+        line-height: 1.5;
+        word-break: break-word;
+    }
+
+    .ltu-member-hub__recent-list {
+        display: grid;
+        gap: 12px;
+    }
+
+    .ltu-member-hub__recent-item,
+    .ltu-member-hub__recent-item:visited {
+        display: grid;
+        gap: 6px;
+        padding: 16px 18px;
+        border: 1px solid #dce3e8;
+        background: linear-gradient(180deg, #ffffff 0%, #f9fbfc 100%);
+        color: #24333f;
+        text-decoration: none;
+        box-shadow: 0 8px 18px rgba(57, 67, 76, 0.05);
+    }
+
+    .ltu-member-hub__recent-item:hover {
+        border-color: #bdd2e3;
+        background: #f2f8fc;
+        text-decoration: none;
+    }
+
+    .ltu-member-hub__recent-section {
+        color: #0065a1;
+        font-size: 0.76em;
+        font-weight: 700;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+    }
+
+    .ltu-member-hub__recent-title {
+        color: #24333f;
+        font-family: 'Kameron', serif;
+        font-size: 1.12em;
+        line-height: 1.35;
+    }
+
+    .ltu-member-hub__recent-date {
+        color: #75818a;
+        font-weight: 600;
+    }
+
+    .ltu-member-hub__actions {
+        margin-top: 22px;
+    }
+
+    .ltu-action,
+    .ltu-action:visited {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 18px;
+        border: none;
+        border-radius: 10px;
+        font-family: 'Source Sans Pro', sans-serif;
+        font-size: 0.95em;
+        font-weight: 700;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        text-decoration: none;
+        cursor: pointer;
+        transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+    }
+
+    .ltu-action:hover {
+        transform: translateY(-1px);
+        text-decoration: none;
+    }
+
+    .ltu-action--primary,
+    .ltu-action--primary:visited {
+        color: #fff;
+        background: linear-gradient(180deg, #1692c8 0%, #0c5c97 100%);
+        box-shadow: 0 10px 20px rgba(12, 92, 151, 0.22);
+    }
+
+    .ltu-action--primary:hover {
+        color: #fff;
+        background: linear-gradient(180deg, #20a2db 0%, #0d679f 100%);
+    }
+
+    @@media screen and (max-width: 960px) {
+        .ltu-member-hub__hero,
+        .ltu-member-hub__grid {
+            grid-template-columns: 1fr;
+        }
+
+        .ltu-member-hub__panel-header {
+            display: block;
+        }
+
+        .ltu-member-hub__panel-copy {
+            max-width: none;
+            margin-top: 10px;
+            text-align: left;
+        }
+    }
+
+    @@media screen and (max-width: 650px) {
+        .ltu-member-hub__hero,
+        .ltu-member-hub__panel {
+            padding: 18px;
+        }
+
+        .ltu-member-hub__headline {
+            font-size: 1.8em;
+        }
+
+        .ltu-member-hub__purchase-top {
+            flex-direction: column;
+        }
+
+        .ltu-member-hub__purchase-meta {
+            grid-template-columns: 1fr;
+        }
+
+        .ltu-member-hub__purchase-meta-full {
+            grid-column: auto;
+        }
+    }
+</style>

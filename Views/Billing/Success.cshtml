@@ -1,0 +1,29 @@
+@{
+    Layout = "~/Views/master.cshtml";
+    var returnUrl = ViewData["ReturnUrl"]?.ToString() ?? "/members/my-profile/";
+}
+
+<div class="content-wrapper content-has-breadcrumb">
+    <nav class="breadcrumb-nav">
+        <a title="Home" href="/">Home</a>
+        <a title="Members" href="/members/my-profile/">Members</a>
+        <span>Payment Success</span>
+    </nav>
+
+    <header class="content-header">
+        <h1 class="content-header-h1">Payment Success</h1>
+    </header>
+
+    <article class="content-article ltu-flow-stack">
+        <section class="ltu-billing-card ltu-billing-state ltu-billing-state--success">
+            <span class="ltu-billing-state__marker">+</span>
+            <p class="ltu-billing-kicker">Purchase Complete</p>
+            <h2 class="ltu-billing-title">Payment received</h2>
+            <p class="ltu-billing-copy">Your payment was accepted and your member account is being updated. If access does not open immediately, refresh once in a few seconds.</p>
+
+            <div class="ltu-flow-actions">
+                <a class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide" href="@returnUrl">Continue to My Profile</a>
+            </div>
+        </section>
+    </article>
+</div>

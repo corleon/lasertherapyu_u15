@@ -1,28 +1,104 @@
 @model LTU_U15.Models.Membership.LoginMemberViewModel
+@{
+    var registerUrl = "/members/registration/";
+    var serverMessage = TempData["MembershipMessage"] as string;
+    var hasServerError = !string.IsNullOrWhiteSpace(serverMessage);
+    if (!string.IsNullOrWhiteSpace(Model?.ReturnUrl))
+    {
+        registerUrl += $"?r={Uri.EscapeDataString(Model.ReturnUrl)}";
+    }
+}
 
-<section class="content-form login">
-    <form method="post" action="/account/log-in" class="form form-column form-column-1">
+<section class="ltu-auth-shell ltu-auth-shell--split">
+    <form method="post" action="/account/log-in" class="ltu-auth-card ltu-auth-form" id="membershipLoginForm" novalidate>
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="ReturnUrl" />
-        <h2>Welcome Back! Sign In Here.</h2>
 
-        @if (TempData["MembershipMessage"] is string message && !string.IsNullOrWhiteSpace(message))
+        <p class="ltu-auth-eyebrow">Member Access</p>
+        <h2 class="ltu-auth-title">Welcome back</h2>
+        <p class="ltu-auth-copy">Sign in to reopen your purchased webinars, videos, protocols, and research.</p>
+
+        @if (hasServerError)
         {
-            <p>@message</p>
+            <div class="membership-alert membership-alert-error membership-alert-animated" role="alert">@serverMessage</div>
         }
+        <div class="membership-alert membership-alert-error membership-alert-animated membership-inline-error" id="loginClientError" style="display:none;"></div>
 
-        <label class="form-label" asp-for="Username">Username*</label>
-        <input class="form-text-input" asp-for="Username" />
+        <div class="ltu-auth-grid" style="margin-top:18px;">
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="Username">Username*</label>
+                <input class="ltu-auth-input @(hasServerError ? "membership-invalid" : null)" asp-for="Username" autocomplete="username" />
+            </div>
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="Password">Password*</label>
+                <input class="ltu-auth-input @(hasServerError ? "membership-invalid" : null)" asp-for="Password" type="password" autocomplete="current-password" />
+            </div>
+        </div>
 
-        <label class="form-label" asp-for="Password">Password*</label>
-        <input class="form-text-input" asp-for="Password" />
+        <p class="ltu-auth-help" style="margin-top:14px;">Forgot your <a href="/members/forgot-password/">password</a> or <a href="/members/forgot-username/">username</a>?</p>
 
-        <p>(forgot your <a href="/members/forgot-password">Password</a> or <a href="/members/forgot-username">Username</a>?)</p>
-        <button type="submit" class="btn btn-blue">Submit</button>
+        <div class="ltu-auth-actions">
+            <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Sign In</button>
+        </div>
     </form>
 
-    <div class="form form-column form-column-2">
-        <h2>Not a registered site user?</h2>
-        <a class="btn btn-blue" href="/members/registration">Register Here</a>
-    </div>
+    <aside class="ltu-auth-card ltu-auth-card--accent">
+        <p class="ltu-auth-eyebrow">New Member</p>
+        <h2 class="ltu-auth-title">Create your LTU account</h2>
+        <p class="ltu-auth-copy">Register once to purchase paid content, track access, and keep your learning history attached to your member profile.</p>
+        <ul class="ltu-auth-list">
+            <li>Stripe checkout tied to your member account</li>
+            <li>Purchased resources available from My Profile</li>
+            <li>Recent views tracked for quick return</li>
+        </ul>
+        <div class="ltu-auth-aside-links">
+            <a class="ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide" href="@registerUrl">Register Here</a>
+        </div>
+    </aside>
 </section>
+
+<script>
+    (function () {
+        var form = document.getElementById("membershipLoginForm");
+        if (!form) {
+            return;
+        }
+
+        var username = form.querySelector("[name='Username']");
+        var password = form.querySelector("[name='Password']");
+        var errorBox = document.getElementById("loginClientError");
+
+        function setError(message) {
+            if (!errorBox) {
+                return;
+            }
+
+            errorBox.textContent = message || "";
+            errorBox.style.display = message ? "block" : "none";
+        }
+
+        function toggleInvalid(field, isInvalid) {
+            if (!field) {
+                return;
+            }
+
+            field.classList.toggle("membership-invalid", isInvalid);
+        }
+
+        form.addEventListener("submit", function (event) {
+            var usernameMissing = !username || !(username.value || "").trim();
+            var passwordMissing = !password || !(password.value || "").trim();
+
+            toggleInvalid(username, usernameMissing);
+            toggleInvalid(password, passwordMissing);
+
+            if (usernameMissing || passwordMissing) {
+                event.preventDefault();
+                setError("Please enter both username and password.");
+                return;
+            }
+
+            setError("");
+        });
+    })();
+</script>

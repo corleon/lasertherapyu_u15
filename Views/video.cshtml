@@ -1,11 +1,22 @@
 @using Umbraco.Extensions
 @using Umbraco.Cms.Core.Models.PublishedContent
+@using LTU_U15.Services.Commerce
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@inject IContentPurchaseService PurchaseService
 
 @{
     Layout = "master.cshtml";
 
-    // ---- Data from the video doctype ----
+    var isPaid = PurchaseService.IsPaidContent(Model);
+    if (isPaid && !await PurchaseService.CurrentMemberHasPurchasedAsync(Model.Key))
+    {
+        var checkoutUrl = $"/billing/checkout?contentKey={Model.Key}&returnUrl={Uri.EscapeDataString(Model.Url() ?? "/")}";
+        Context.Response.Redirect(checkoutUrl);
+        return;
+    }
+
+    await PurchaseService.TrackCurrentMemberRecentlyViewedAsync(Model.Key);
+
     var pageTitle = Model?.Value<string>("pageTitle")?.Trim();
     var title = (Model?.Value<string>("title")?.Trim() ?? pageTitle ?? "");
 
@@ -15,14 +26,10 @@
     var date = Model?.Value<System.DateTime?>("date");
     string dateFormatted = date.HasValue ? date.Value.ToString("M/d/yyyy") : "";
 
-    // Ancestor breadcrumbs (Home > ... > Parent)
     var crumbs = Model?.AncestorsOrSelf()?.OrderBy(x => x.Level).ToList() ?? new List<IPublishedContent>();
 
-    // Related videos (siblings under the same Video List)
     var related = Model?.Siblings()?
-        .Where(x => x.IsPublished()
-            && x.ContentType.Alias == "video"
-        )
+        .Where(x => x.IsPublished() && x.ContentType.Alias == "video")
         .OrderByDescending(x => x.Value<System.DateTime?>("date") ?? System.DateTime.MinValue)
         .Take(3)
         .ToList() ?? new List<IPublishedContent>();
@@ -30,8 +37,7 @@
     string Summary(IPublishedContent c)
     {
         var html = c?.Value<string>("description") ?? "";
-        var text = html.StripHtml().Trim();
-        return text;
+        return html.StripHtml().Trim();
     }
 }
 
@@ -56,8 +62,6 @@
     </header>
 
     <section class="content-body">
-
-        @* ---- Video ---- *@
         @if (!string.IsNullOrWhiteSpace(videoEmbed))
         {
             <div class="content-video-player">
@@ -65,7 +69,6 @@
             </div>
         }
 
-        @* ---- Meta (length & date) ---- *@
         @if (!string.IsNullOrWhiteSpace(length) || !string.IsNullOrWhiteSpace(dateFormatted))
         {
             <dl class="listing-item-date">
@@ -82,7 +85,6 @@
             </dl>
         }
 
-        @* ---- Description ---- *@
         @if (!string.IsNullOrWhiteSpace(descriptionHtml))
         {
             <article class="content-article">
@@ -91,7 +93,6 @@
         }
     </section>
 
-    @* ---- Related Videos ---- *@
     @if (related.Any())
     {
         <section class="related-products">
@@ -112,3 +113,4 @@
         </section>
     }
 </div>
+

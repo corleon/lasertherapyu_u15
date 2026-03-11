@@ -4,6 +4,8 @@ namespace LTU_U15.Models.Membership;
 
 public sealed class RegisterMemberViewModel
 {
+    public string? ReturnUrl { get; set; }
+
     [Required, StringLength(50)]
     public string FirstName { get; set; } = string.Empty;
 
@@ -55,7 +57,7 @@ public sealed class RegisterMemberViewModel
     [Required, StringLength(50, MinimumLength = 4)]
     public string Username { get; set; } = string.Empty;
 
-    [Required, StringLength(100, MinimumLength = 10, ErrorMessage = "Password must be at least 10 characters long and at most 100."), DataType(DataType.Password)]
+    [Required, StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be at least 8 characters long and at most 100."), DataType(DataType.Password)]
     public string Password { get; set; } = string.Empty;
 
     [Required, DataType(DataType.Password), Compare(nameof(Password))]

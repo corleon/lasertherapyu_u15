@@ -1,17 +1,82 @@
 @model LTU_U15.Models.Membership.ForgotUsernameViewModel
 
-<p>Enter the email associated with your account. Your username will be emailed to you.</p>
+@{
+    var message = TempData["MembershipMessage"] as string;
+    var hasMessage = !string.IsNullOrWhiteSpace(message);
+}
 
-<form method="post" action="/account/forgot-username" class="content-form">
-    @Html.AntiForgeryToken()
+<section class="ltu-auth-shell ltu-auth-shell--split">
+    <form method="post" action="/account/forgot-username" class="ltu-auth-card ltu-auth-form" id="forgotUsernameForm" novalidate>
+        @Html.AntiForgeryToken()
 
-    @if (TempData["MembershipMessage"] is string message && !string.IsNullOrWhiteSpace(message))
-    {
-        <p>@message</p>
-    }
+        <p class="ltu-auth-eyebrow">Member Support</p>
+        <h2 class="ltu-auth-title">Recover your username</h2>
+        <p class="ltu-auth-copy">Enter the email associated with your account and we will send your username to that address.</p>
 
-    <label class="form-label" asp-for="Email">Email Address*</label>
-    <input class="form-text-input" asp-for="Email" />
+        @if (hasMessage)
+        {
+            <div class="membership-alert membership-alert-success membership-alert-animated" role="alert">@message</div>
+        }
 
-    <button type="submit" class="btn btn-blue">Retrieve Username</button>
-</form>
+        <div class="membership-alert membership-alert-error membership-alert-animated membership-inline-error" id="forgotUsernameClientError" style="display:none;"></div>
+
+        <div class="ltu-auth-grid" style="margin-top:18px;">
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="Email">Email Address*</label>
+                <input class="ltu-auth-input" asp-for="Email" autocomplete="email" />
+            </div>
+        </div>
+
+        <div class="ltu-auth-actions">
+            <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Retrieve Username</button>
+        </div>
+    </form>
+
+    <aside class="ltu-auth-card ltu-auth-card--accent">
+        <p class="ltu-auth-eyebrow">Need a different fix?</p>
+        <h2 class="ltu-auth-title">Forgot the password too?</h2>
+        <p class="ltu-auth-copy">Recover your username first, then use password reset if you also need a new temporary password.</p>
+        <div class="ltu-auth-aside-links">
+            <a class="ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide" href="/members/forgot-password/">Reset Password</a>
+            <a class="ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide" href="/members/log-in/">Back to Log In</a>
+        </div>
+    </aside>
+</section>
+
+<script>
+    (function () {
+        var form = document.getElementById("forgotUsernameForm");
+        if (!form) {
+            return;
+        }
+
+        var email = form.querySelector("[name='Email']");
+        var errorBox = document.getElementById("forgotUsernameClientError");
+
+        function showError(message) {
+            if (!errorBox) {
+                return;
+            }
+
+            errorBox.textContent = message || "";
+            errorBox.style.display = message ? "block" : "none";
+        }
+
+        form.addEventListener("submit", function (event) {
+            var value = (email && email.value || "").trim();
+            var invalid = !value || value.indexOf("@@") < 1;
+
+            if (email) {
+                email.classList.toggle("membership-invalid", invalid);
+            }
+
+            if (invalid) {
+                event.preventDefault();
+                showError("Please enter a valid email address.");
+                return;
+            }
+
+            showError("");
+        });
+    })();
+</script>

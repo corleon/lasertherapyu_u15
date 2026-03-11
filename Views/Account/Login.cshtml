@@ -4,29 +4,4 @@
     ViewData["Title"] = "Log In";
 }
 
-<section class="content-form login">
-    <form method="post" action="/account/log-in" class="form form-column form-column-1">
-        @Html.AntiForgeryToken()
-        <input type="hidden" asp-for="ReturnUrl" />
-
-        <div asp-validation-summary="ModelOnly"></div>
-        <h2>Welcome Back! Sign In Here.</h2>
-
-        <label class="form-label" asp-for="Username">Username*</label>
-        <input class="form-text-input" asp-for="Username" />
-        <span asp-validation-for="Username"></span>
-
-        <label class="form-label" asp-for="Password">Password*</label>
-        <input class="form-text-input" asp-for="Password" />
-        <span asp-validation-for="Password"></span>
-
-        <p>(forgot your <a href="/account/forgot-password">Password</a> or <a href="/account/forgot-username">Username</a>?)</p>
-
-        <button type="submit" class="btn btn-blue">Submit</button>
-    </form>
-
-    <div class="form form-column form-column-2">
-        <h2>Not a registered site user?</h2>
-        <a class="btn btn-blue" href="/account/registration">Register Here</a>
-    </div>
-</section>
+@await Html.PartialAsync("~/Views/Partials/membership/loginForm.cshtml", Model)

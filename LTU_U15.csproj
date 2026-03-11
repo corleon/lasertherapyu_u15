@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Clean" Version="5.0.0" />
+    <PackageReference Include="Stripe.net" Version="48.3.0" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.9" />
     <PackageReference Include="Umbraco.Cms" Version="17.2.1" />
   </ItemGroup>

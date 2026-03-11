@@ -2,9 +2,12 @@
 @using Umbraco.Cms.Web.Common.PublishedModels;
 @using Umbraco.Extensions
 @using Umbraco.Cms.Core.Models.PublishedContent
+@using LTU_U15.Services.Commerce
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@inject IContentPurchaseService PurchaseService
 @{
     Layout = "master.cshtml";
+    var purchasedKeys = await PurchaseService.GetCurrentMemberPurchasedKeysAsync();
 
     // Pick up children of this "Webinar List" page that are either 'veterinaryWebinar' or 'webinar'
     var allWebinars = Model!.Children()
@@ -66,13 +69,27 @@
                 var title = w.Value<string>("title")?.Trim();
 
                 var tagNodes = w.Value<IEnumerable<IPublishedContent>>("tags");
+                var isPaid = PurchaseService.IsPaidContent(w);
+                var isPurchased = isPaid && purchasedKeys.Contains(w.Key);
+                var price = PurchaseService.GetPrice(w);
+                var primaryActionClass = isPurchased
+                    ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide"
+                    : isPaid
+                        ? "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide"
+                        : "ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide";
 
                 var tagKeys = tagNodes != null && tagNodes.Any()
                     ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString()))
                     : "";
 
                 <div class="listing-item webinar-item" data-tags="@tagKeys" data-webinar-key="@w.Key">
-                    <h2 class="listing-item-h2">@((string.IsNullOrWhiteSpace(title) ? w.Name : title))</h2>
+                    <h2 class="listing-item-h2">
+                        @((string.IsNullOrWhiteSpace(title) ? w.Name : title))
+                        @if (isPurchased)
+                        {
+                            <span class="purchase-badge ltu-listing-badge">Purchased</span>
+                        }
+                    </h2>
 
                     <div class="listing-item-description">
                         @Html.Raw(Summary(w) ?? "")
@@ -85,10 +102,13 @@
                         <dd>@DisplayDate(w)</dd>
                     </dl>
 
-                    <dl class="listing-item-price">
-                        <dt>Price:</dt>
-                        <dd>29.95</dd>
-                    </dl>
+                    @if (price.HasValue)
+                    {
+                        <dl class="listing-item-price">
+                            <dt>Price:</dt>
+                            <dd>$@price.Value.ToString("0.00")</dd>
+                        </dl>
+                    }
 
                     @if (tagNodes != null && tagNodes.Any())
                     {
@@ -144,10 +164,21 @@
                         </div>
                     }
 
-                    <ul class="listing-item-btns">
+                    <ul class="listing-item-btns ltu-listing-actions">
                         <li class="listing-item-btn">
-                            <a class="btn btn-green btn-218" href="@w.Url()">Learn More</a>
+                            <a class="@primaryActionClass" href="@(isPaid && !isPurchased ? $"/billing/checkout?contentKey={w.Key}&returnUrl={Uri.EscapeDataString(w.Url() ?? "/webinars")}" : w.Url())">@(isPurchased ? "Open" : (isPaid ? "Buy Now" : "Learn More"))</a>
                         </li>
+                        @if (isPaid && !isPurchased)
+                        {
+                            <li class="listing-item-btn">
+                                <form method="post" action="/cart/add">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="contentKey" value="@w.Key" />
+                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                    <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Add to Cart</button>
+                                </form>
+                            </li>
+                        }
                     </ul>
                 </div>
             }
@@ -197,5 +228,22 @@
         padding: 2px 4px;
         border-radius: 3px;
         font-weight: bold;
+    }
+
+    .purchase-badge,
+    .ltu-listing-badge {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 10px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: rgba(0, 103, 56, 0.10);
+        color: #006738;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        line-height: 1;
+        text-transform: uppercase;
+        vertical-align: middle;
     }
 </style>

@@ -1,71 +1,81 @@
 @model LTU_U15.Models.Membership.RegisterMemberViewModel
+@{
+    var serverMessage = TempData["MembershipMessage"] as string;
+    var hasServerError = !string.IsNullOrWhiteSpace(serverMessage);
+    var highlightEmail = hasServerError && serverMessage!.Contains("Email", StringComparison.OrdinalIgnoreCase);
+    var highlightUsername = hasServerError && serverMessage!.Contains("Username", StringComparison.OrdinalIgnoreCase);
+    var highlightPassword = hasServerError && serverMessage!.Contains("Password", StringComparison.OrdinalIgnoreCase);
+}
 
-<section class="content-form register">
-    <form method="post" action="/account/registration" class="form form-column form-column-1" id="membershipRegisterForm" novalidate>
+<section class="ltu-auth-shell ltu-auth-shell--split">
+    <form method="post" action="/account/registration" class="ltu-auth-card ltu-auth-form" id="membershipRegisterForm" novalidate>
         @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="ReturnUrl" />
 
-        @if (TempData["MembershipMessage"] is string message && !string.IsNullOrWhiteSpace(message))
+        <p class="ltu-auth-eyebrow">Member Registration</p>
+        <h2 class="ltu-auth-title">Create your LTU account</h2>
+        <p class="ltu-auth-copy">Register now to purchase paid content, reopen your learning library, and keep account activity attached to your member profile. Fields marked with an asterisk (*) are required.</p>
+
+        @if (hasServerError)
         {
-            <p class="membership-message">@message</p>
+            <div class="membership-alert membership-alert-error membership-alert-animated membership-message" role="alert">@serverMessage</div>
         }
-        <p id="registerErrorSummary" class="register-errors" style="display:none;"></p>
+        <div id="registerErrorSummary" class="membership-alert membership-alert-error membership-alert-animated register-errors" style="display:none;"></div>
 
-        <p class="register-intro">Register now to gain access to important laser therapy information. Fields marked with an asterisk (*) are required.</p>
-
-        <ul>
-            <li class="form-item">
-                <label class="form-label" asp-for="CustomerType">I am a*</label>
-                <select class="form-selectbox" asp-for="CustomerType" id="CustomerType" data-required="true">
+        <div class="ltu-auth-grid ltu-auth-grid--two" style="margin-top:18px;">
+            <div class="ltu-auth-field ltu-auth-field--full">
+                <label class="ltu-auth-label" asp-for="CustomerType">I am a*</label>
+                <select class="ltu-auth-select" asp-for="CustomerType" id="CustomerType" data-required="true">
                     <option value="">Select</option>
                     <option value="laseru\Consumer">Consumer</option>
                     <option value="laseru\Professional">Medical Professional</option>
                     <option value="laseru\Educator Student">Educator/Student</option>
                 </select>
-            </li>
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="FirstName">First Name*</label>
-                <input class="form-text-input" asp-for="FirstName" data-required="true" />
-            </li>
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="FirstName">First Name*</label>
+                <input class="ltu-auth-input" asp-for="FirstName" data-required="true" />
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="LastName">Last Name*</label>
-                <input class="form-text-input" asp-for="LastName" data-required="true" />
-            </li>
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="LastName">Last Name*</label>
+                <input class="ltu-auth-input" asp-for="LastName" data-required="true" />
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="Email">Email Address*</label>
-                <input class="form-text-input" asp-for="Email" data-required="true" />
-            </li>
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="Email">Email Address*</label>
+                <input class="ltu-auth-input @(highlightEmail ? "membership-invalid" : null)" asp-for="Email" data-required="true" autocomplete="email" />
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="PhoneNumber">Phone Number*</label>
-                <input class="form-text-input" asp-for="PhoneNumber" data-required="true" />
-            </li>
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="PhoneNumber">Phone Number*</label>
+                <input class="ltu-auth-input" asp-for="PhoneNumber" data-required="true" />
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="CompanyName">Company Name / Practice Name</label>
-                <input class="form-text-input" asp-for="CompanyName" />
-            </li>
+            <div class="ltu-auth-field ltu-auth-field--full">
+                <label class="ltu-auth-label" asp-for="CompanyName">Company Name / Practice Name</label>
+                <input class="ltu-auth-input" asp-for="CompanyName" />
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="Address">Address*</label>
-                <input class="form-text-input" asp-for="Address" data-required="true" />
-            </li>
+            <div class="ltu-auth-field ltu-auth-field--full">
+                <label class="ltu-auth-label" asp-for="Address">Address*</label>
+                <input class="ltu-auth-input" asp-for="Address" data-required="true" />
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="Address2">Address 2</label>
-                <input class="form-text-input" asp-for="Address2" />
-            </li>
+            <div class="ltu-auth-field ltu-auth-field--full">
+                <label class="ltu-auth-label" asp-for="Address2">Address 2</label>
+                <input class="ltu-auth-input" asp-for="Address2" />
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="City">City*</label>
-                <input class="form-text-input" asp-for="City" data-required="true" />
-            </li>
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="City">City*</label>
+                <input class="ltu-auth-input" asp-for="City" data-required="true" />
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="Country">Country*</label>
-                <select class="form-selectbox" asp-for="Country" id="Country" data-required="true">
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="Country">Country*</label>
+                <select class="ltu-auth-select" asp-for="Country" id="Country" data-required="true">
                     <option value="">Select Country</option>
                     <option value="United States">United States</option>
                     <option value="Canada">Canada</option>
@@ -73,11 +83,11 @@
                     <option value="Australia">Australia</option>
                     <option value="Other">Other</option>
                 </select>
-            </li>
+            </div>
 
-            <li class="form-item" id="stateWrap" style="display:none;">
-                <label class="form-label" asp-for="State">State</label>
-                <select class="form-selectbox" asp-for="State">
+            <div class="ltu-auth-field" id="stateWrap" style="display:none;">
+                <label class="ltu-auth-label" asp-for="State">State</label>
+                <select class="ltu-auth-select" asp-for="State">
                     <option value="">Select State</option>
                     <option value="AL">Alabama</option>
                     <option value="AK">Alaska</option>
@@ -92,40 +102,40 @@
                     <option value="TX">Texas</option>
                     <option value="WA">Washington</option>
                 </select>
-            </li>
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="ZipPostalCode">Zip/Postal Code*</label>
-                <input class="form-text-input" asp-for="ZipPostalCode" data-required="true" />
-            </li>
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="ZipPostalCode">Zip/Postal Code*</label>
+                <input class="ltu-auth-input" asp-for="ZipPostalCode" data-required="true" />
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="UserType">User Type*</label>
-                <select class="form-selectbox" asp-for="UserType" id="UserType" data-required="true">
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="UserType">User Type*</label>
+                <select class="ltu-auth-select" asp-for="UserType" id="UserType" data-required="true">
                     <option value="">Select</option>
                     <option value="Prospective Customer">Prospective Customer</option>
                     <option value="Laser Product Owner">Laser Product Owner</option>
                 </select>
-            </li>
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="ProductOwned">Product Owned*</label>
-                <select class="form-selectbox" asp-for="ProductOwned" id="ProductOwned" data-required="true">
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="ProductOwned">Product Owned*</label>
+                <select class="ltu-auth-select" asp-for="ProductOwned" id="ProductOwned" data-required="true">
                     <option value="">Select</option>
                     <option value="GameDay Laser">GameDay Laser</option>
                     <option value="PainAway Laser">PainAway Laser</option>
                     <option value="Other">Other</option>
                 </select>
-            </li>
+            </div>
 
-            <li class="form-item" id="productNameWrap" style="display:none;">
-                <label class="form-label" asp-for="ProductName">Product Name</label>
-                <input class="form-text-input" asp-for="ProductName" />
-            </li>
+            <div class="ltu-auth-field ltu-auth-field--full" id="productNameWrap" style="display:none;">
+                <label class="ltu-auth-label" asp-for="ProductName">Product Name</label>
+                <input class="ltu-auth-input" asp-for="ProductName" />
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="HearAboutUs">How did you hear about us?</label>
-                <select class="form-selectbox" asp-for="HearAboutUs">
+            <div class="ltu-auth-field ltu-auth-field--full">
+                <label class="ltu-auth-label" asp-for="HearAboutUs">How did you hear about us?</label>
+                <select class="ltu-auth-select" asp-for="HearAboutUs">
                     <option value="">Select</option>
                     <option value="Email/Newsletter Blast">Email/Newsletter Blast</option>
                     <option value="Friend/Colleague">Friend/Colleague</option>
@@ -134,43 +144,66 @@
                     <option value="Print or Web Advertisement">Print or Web Advertisement</option>
                     <option value="Social Media (Facebook, Twitter, etc.)">Social Media (Facebook, Twitter, etc.)</option>
                 </select>
-            </li>
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="Username">Username*</label>
-                <input class="form-text-input" asp-for="Username" data-required="true" />
-            </li>
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="Username">Username*</label>
+                <input class="ltu-auth-input @(highlightUsername ? "membership-invalid" : null)" asp-for="Username" data-required="true" autocomplete="username" />
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="Password">Password*</label>
-                <input class="form-text-input" asp-for="Password" type="password" data-required="true" minlength="10" maxlength="100" />
-            </li>
+            <div class="ltu-auth-field">
+                <label class="ltu-auth-label" asp-for="Password">Password*</label>
+                <input class="ltu-auth-input @(highlightPassword ? "membership-invalid" : null)" asp-for="Password" id="Password" type="password" data-required="true" minlength="8" maxlength="100" autocomplete="new-password" />
+            </div>
 
-            <li class="form-item">
-                <label class="form-label" asp-for="ConfirmPassword">Confirm Password*</label>
-                <input class="form-text-input" asp-for="ConfirmPassword" type="password" data-required="true" minlength="10" maxlength="100" />
-            </li>
+            <div class="ltu-auth-field ltu-auth-field--full">
+                <label class="ltu-auth-label" asp-for="ConfirmPassword">Confirm Password*</label>
+                <input class="ltu-auth-input @(highlightPassword ? "membership-invalid" : null)" asp-for="ConfirmPassword" id="ConfirmPassword" type="password" data-required="true" minlength="8" maxlength="100" autocomplete="new-password" />
+            </div>
 
-            <li class="form-item form-item-checkbox">
-                <label class="register-checkbox-label" for="OptIn">
-                    <input class="register-checkbox" type="checkbox" id="OptIn" name="OptIn" value="true" @(Model.OptIn ? "checked" : null) />
-                    <span>I would like to receive information from Laser Therapy University.</span>
-                </label>
-            </li>
+            <div class="ltu-auth-field ltu-auth-field--full">
+                <div id="registerPasswordError" class="membership-alert membership-alert-error membership-alert-animated register-errors register-errors-password" style="display:none;"></div>
+            </div>
 
-            <li class="form-item form-item-checkbox">
-                <label class="register-checkbox-label" for="AcceptedTerms">
-                    <input class="register-checkbox" type="checkbox" id="AcceptedTerms" name="AcceptedTerms" value="true" @(Model.AcceptedTerms ? "checked" : null) data-required="true" />
-                    <span>*I agree to the <a href="/terms-and-conditions" target="_blank">Terms &amp; Conditions</a></span>
-                </label>
-                <span class="checkbox-error" id="AcceptedTermsError"></span>
-            </li>
+            <div class="ltu-auth-field ltu-auth-field--full">
+                <div class="ltu-auth-checks">
+                    <div class="ltu-auth-check-row form-item-checkbox">
+                        <label class="ltu-auth-check">
+                            <input class="register-checkbox" type="checkbox" id="OptIn" name="OptIn" value="true" @(Model.OptIn ? "checked" : null) />
+                            <span>I would like to receive information from Laser Therapy University.</span>
+                        </label>
+                    </div>
 
-            <li class="form-item form-item-buttons">
-                <button type="submit" class="btn btn-blue">Submit</button>
-            </li>
-        </ul>
+                    <div class="ltu-auth-check-row form-item-checkbox">
+                        <label class="ltu-auth-check">
+                            <input class="register-checkbox" type="checkbox" id="AcceptedTerms" name="AcceptedTerms" value="true" @(Model.AcceptedTerms ? "checked" : null) data-required="true" />
+                            <span>*I agree to the <a href="/terms-and-conditions" target="_blank">Terms &amp; Conditions</a></span>
+                        </label>
+                        <span class="checkbox-error" id="AcceptedTermsError"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ltu-auth-actions" style="margin-top:18px;">
+            <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Submit</button>
+        </div>
     </form>
+
+    <aside class="ltu-auth-card ltu-auth-card--accent">
+        <p class="ltu-auth-eyebrow">What you get</p>
+        <h2 class="ltu-auth-title">Built for paid access</h2>
+        <p class="ltu-auth-copy">Your LTU member profile becomes the source of truth for purchases, recent views, and access to premium learning materials.</p>
+        <ul class="ltu-auth-list">
+            <li>Profile-based access to paid webinars, videos, protocols, and research</li>
+            <li>Stripe checkout with your member details prefilled when available</li>
+            <li>Purchase confirmations sent to both user and admin</li>
+            <li>Recently viewed history inside My Profile</li>
+        </ul>
+        <div class="ltu-auth-aside-links">
+            <a class="ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide" href="/members/log-in/">Already have an account?</a>
+        </div>
+    </aside>
 </section>
 
 <script>
@@ -182,6 +215,9 @@
         var stateWrap = document.getElementById("stateWrap");
         var errorSummary = document.getElementById("registerErrorSummary");
         var acceptedTermsError = document.getElementById("AcceptedTermsError");
+        var passwordError = document.getElementById("registerPasswordError");
+        var password = document.getElementById("Password");
+        var confirmPassword = document.getElementById("ConfirmPassword");
 
         function toggleProductName() {
             if (!productWrap || !productOwned) {
@@ -214,13 +250,46 @@
                 return;
             }
             if (field.type === "checkbox") {
-                var row = field.closest(".form-item-checkbox");
+                var row = field.closest(".ltu-auth-check-row");
                 if (row) {
                     row.classList.toggle("membership-invalid-checkbox", invalid);
                 }
                 return;
             }
             field.classList.toggle("membership-invalid", invalid);
+        }
+
+        function setTextError(element, message) {
+            if (!element) {
+                return;
+            }
+
+            element.textContent = message || "";
+            element.style.display = message ? "block" : "none";
+        }
+
+        function validatePasswords() {
+            if (!password || !confirmPassword) {
+                return [];
+            }
+
+            var errors = [];
+            var passwordInvalid = password.value.length > 0 && (password.value.length < 8 || password.value.length > 100);
+            var confirmInvalid = confirmPassword.value.length > 0 && password.value !== confirmPassword.value;
+
+            if (passwordInvalid) {
+                errors.push("Password must be 8-100 characters.");
+            }
+
+            if (confirmInvalid) {
+                errors.push("Password and Confirm Password do not match.");
+            }
+
+            markField(password, passwordInvalid);
+            markField(confirmPassword, confirmInvalid);
+            setTextError(passwordError, errors.join(" "));
+
+            return errors;
         }
 
         if (productOwned) {
@@ -242,9 +311,15 @@
         requiredFields.forEach(function (field) {
             field.addEventListener("input", function () {
                 markField(field, !validateField(field));
+                if (field === password || field === confirmPassword) {
+                    validatePasswords();
+                }
             });
             field.addEventListener("change", function () {
                 markField(field, !validateField(field));
+                if (field === password || field === confirmPassword) {
+                    validatePasswords();
+                }
             });
         });
 
@@ -263,20 +338,10 @@
                 }
             });
 
-            var password = document.getElementById("Password");
-            var confirmPassword = document.getElementById("ConfirmPassword");
-            if (password && confirmPassword) {
-                if (password.value.length < 10 || password.value.length > 100) {
-                    markField(password, true);
-                    hasErrors = true;
-                    errors.push("Password must be 10-100 characters.");
-                }
-
-                if (password.value !== confirmPassword.value) {
-                    markField(confirmPassword, true);
-                    hasErrors = true;
-                    errors.push("Password and Confirm Password do not match.");
-                }
+            var passwordErrors = validatePasswords();
+            if (passwordErrors.length > 0) {
+                hasErrors = true;
+                errors = errors.concat(passwordErrors);
             }
 
             if (hasErrors) {
@@ -302,105 +367,7 @@
             if (acceptedTermsError) {
                 acceptedTermsError.textContent = "";
             }
+            setTextError(passwordError, "");
         });
-
     })();
 </script>
-
-<style>
-    .content-form.register .form {
-        max-width: 760px;
-    }
-
-    .content-form.register .form-item-checkbox {
-        display: flex;
-        align-items: flex-start;
-        gap: 10px;
-        margin-top: 8px;
-        list-style: none;
-    }
-
-    .content-form.register .register-checkbox {
-        margin: 3px 10px 0 0;
-        width: 16px;
-        height: 16px;
-        min-width: 16px;
-        min-height: 16px;
-        appearance: auto !important;
-        -webkit-appearance: checkbox !important;
-        -moz-appearance: checkbox !important;
-        cursor: pointer;
-        box-shadow: none !important;
-    }
-
-    .content-form.register .register-checkbox-label {
-        display: flex;
-        align-items: flex-start;
-        width: 100%;
-        text-align: left;
-        float: none;
-        margin: 0;
-        cursor: pointer;
-        line-height: 1.3;
-    }
-
-    .content-form.register .form-item-buttons {
-        margin-top: 16px;
-    }
-
-    .content-form.register .membership-message {
-        color: #333;
-        margin-bottom: 18px;
-    }
-
-    .content-form.register .register-intro {
-        margin: 0 0 18px;
-    }
-
-    .membership-invalid {
-        border-color: #c62828 !important;
-        outline: 1px solid #c62828 !important;
-        background-color: #fff5f5 !important;
-        box-sizing: border-box !important;
-    }
-
-    .content-form.register .membership-invalid-checkbox .register-checkbox-label {
-        color: #b00020;
-    }
-
-    .content-form.register .checkbox-error {
-        display: block;
-        color: #b00020;
-        font-size: 12px;
-        margin-left: 26px;
-        margin-top: 4px;
-    }
-
-    .content-form.register .register-errors {
-        color: #b00020;
-        margin: 8px 0 14px;
-    }
-
-    .content-form.register .form-selectbox {
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        appearance: none;
-        border: 0;
-        background-color: #e8e8e8;
-        background-image:
-            linear-gradient(45deg, transparent 50%, #4a4a4a 50%),
-            linear-gradient(135deg, #4a4a4a 50%, transparent 50%);
-        background-position:
-            calc(100% - 14px) calc(50% - 3px),
-            calc(100% - 8px) calc(50% - 3px);
-        background-size: 6px 6px, 6px 6px;
-        background-repeat: no-repeat;
-        padding-right: 28px;
-        box-sizing: border-box;
-    }
-
-    .content-form.register .form-text-input,
-    .content-form.register .form-selectbox {
-        box-sizing: border-box;
-    }
-</style>

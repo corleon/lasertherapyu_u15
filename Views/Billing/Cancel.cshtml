@@ -1,0 +1,29 @@
+@{
+    Layout = "~/Views/master.cshtml";
+    var returnUrl = ViewData["ReturnUrl"]?.ToString() ?? "/members/my-profile/";
+}
+
+<div class="content-wrapper content-has-breadcrumb">
+    <nav class="breadcrumb-nav">
+        <a title="Home" href="/">Home</a>
+        <a title="Members" href="/members/my-profile/">Members</a>
+        <span>Payment Canceled</span>
+    </nav>
+
+    <header class="content-header">
+        <h1 class="content-header-h1">Payment Canceled</h1>
+    </header>
+
+    <article class="content-article ltu-flow-stack">
+        <section class="ltu-billing-card ltu-billing-state ltu-billing-state--cancel">
+            <span class="ltu-billing-state__marker">!</span>
+            <p class="ltu-billing-kicker">Checkout Interrupted</p>
+            <h2 class="ltu-billing-title">Payment canceled</h2>
+            <p class="ltu-billing-copy">You canceled checkout. No charge was made and your cart remains unchanged.</p>
+
+            <div class="ltu-flow-actions">
+                <a class="ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide" href="@returnUrl">Back to Content</a>
+            </div>
+        </section>
+    </article>
+</div>

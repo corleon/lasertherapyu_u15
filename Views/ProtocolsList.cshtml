@@ -2,9 +2,12 @@
 @using Umbraco.Cms.Web.Common.PublishedModels;
 @using Umbraco.Extensions
 @using Umbraco.Cms.Core.Models.PublishedContent
+@using LTU_U15.Services.Commerce
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@inject IContentPurchaseService PurchaseService
 @{
     Layout = "master.cshtml";
+    var purchasedKeys = await PurchaseService.GetCurrentMemberPurchasedKeysAsync();
 
     // Get all protocols under this list page
     var allProtocols = Model!.Children()
@@ -70,9 +73,22 @@
                     : "";
 
                 var priceDisplay = GetPrice(p);
+                var isPaid = PurchaseService.IsPaidContent(p);
+                var isPurchased = isPaid && purchasedKeys.Contains(p.Key);
+                var primaryActionClass = isPurchased
+                    ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide"
+                    : isPaid
+                        ? "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide"
+                        : "ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide";
 
                 <div class="listing-item protocol-item" data-tags="@tagKeys" data-protocol-key="@p.Key">
-                    <h2 class="listing-item-h2">@title</h2>
+                    <h2 class="listing-item-h2">
+                        @title
+                        @if (isPurchased)
+                        {
+                            <span class="purchase-badge ltu-listing-badge">Purchased</span>
+                        }
+                    </h2>
 
                     <div class="listing-item-description">
                         @Html.Raw(Summary(p) ?? "")
@@ -86,10 +102,21 @@
                         </dl>
                     }
 
-                    <ul class="listing-item-btns">
+                    <ul class="listing-item-btns ltu-listing-actions">
                         <li class="listing-item-btn">
-                            <a class="btn btn-green btn-218" href="@p.Url()">View Protocol</a>
+                            <a class="@primaryActionClass" href="@(isPaid && !isPurchased ? $"/billing/checkout?contentKey={p.Key}&returnUrl={Uri.EscapeDataString(p.Url() ?? "/protocols")}" : p.Url())">@(isPurchased ? "Open" : (isPaid ? "Buy Now" : "View Protocol"))</a>
                         </li>
+                        @if (isPaid && !isPurchased)
+                        {
+                            <li class="listing-item-btn">
+                                <form method="post" action="/cart/add">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="contentKey" value="@p.Key" />
+                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                    <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Add to Cart</button>
+                                </form>
+                            </li>
+                        }
                     </ul>
 
                     @if (tagNodes != null && tagNodes.Any())
@@ -164,6 +191,10 @@
         padding: 0;
     }
 
+    .listing-item-btn form {
+        display: inline-block;
+    }
+
     /* Tags section styling */
     .tags {
         display: flex;
@@ -208,5 +239,22 @@
             padding: 10px;
             margin-bottom: 10px;
         }
+    }
+
+    .purchase-badge,
+    .ltu-listing-badge {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 10px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: rgba(0, 103, 56, 0.10);
+        color: #006738;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        line-height: 1;
+        text-transform: uppercase;
+        vertical-align: middle;
     }
 </style>

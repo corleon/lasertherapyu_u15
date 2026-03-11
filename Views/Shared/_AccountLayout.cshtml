@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>@ViewData["Title"]</title>
     <link rel="stylesheet" href="/css/global.css" />
+    <link rel="stylesheet" href="/css/ltu-commerce-ui.css?v=20260311-1" />
 </head>
 <body>
     <div class="page-container">
@@ -14,17 +15,13 @@
                     <div class="content-wrapper content-has-breadcrumb">
                         <nav class="breadcrumb-nav">
                             <a title="Home" href="/">Home</a>
-                            <a title="Account" href="/account/log-in">Account</a>
+                            <a title="Account" href="/members/log-in/">Account</a>
                             <span>@ViewData["Title"]</span>
                         </nav>
                         <header class="content-header">
                             <h1 class="content-header-h1">@ViewData["Title"]</h1>
                         </header>
                         <article class="article-content">
-                            @if (TempData["MembershipMessage"] is string message && !string.IsNullOrWhiteSpace(message))
-                            {
-                                <p>@message</p>
-                            }
                             @RenderBody()
                         </article>
                     </div>

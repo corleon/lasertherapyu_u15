@@ -1,5 +1,7 @@
 using LTU_U15.Services;
+using LTU_U15.Services.Commerce;
 using LTU_U15.Services.Membership;
+using LTU_U15.Services.Site;
 using Microsoft.AspNetCore.DataProtection;
 
 
@@ -20,8 +22,15 @@ builder.CreateUmbracoBuilder()
 
 builder.Services.AddScoped<WebinarImportService>();
 builder.Services.AddControllersWithViews();
+builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<MembershipEmailSettings>(builder.Configuration.GetSection("Membership:Email"));
+builder.Services.Configure<LTU_U15.Models.Commerce.StripeSettings>(builder.Configuration.GetSection("Stripe"));
+builder.Services.AddScoped<ISiteSettingsService, SiteSettingsService>();
 builder.Services.AddScoped<IMembershipEmailService, MembershipEmailService>();
+builder.Services.AddScoped<IMembershipNotificationService, MembershipNotificationService>();
+builder.Services.AddScoped<IContentPurchaseService, ContentPurchaseService>();
+builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<IStripePaymentGateway, StripePaymentGateway>();
 WebApplication app = builder.Build();
 
 

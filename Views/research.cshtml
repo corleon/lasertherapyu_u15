@@ -1,14 +1,26 @@
-﻿@using Umbraco.Extensions
+@using Umbraco.Extensions
 @using Umbraco.Cms.Core.Models.PublishedContent
+@using LTU_U15.Services.Commerce
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@inject IContentPurchaseService PurchaseService
 
 @{
     Layout = "master.cshtml";
 
+    var isPaid = PurchaseService.IsPaidContent(Model);
+    if (isPaid && !await PurchaseService.CurrentMemberHasPurchasedAsync(Model.Key))
+    {
+        var checkoutUrl = $"/billing/checkout?contentKey={Model.Key}&returnUrl={Uri.EscapeDataString(Model.Url() ?? "/")}";
+        Context.Response.Redirect(checkoutUrl);
+        return;
+    }
+
+    await PurchaseService.TrackCurrentMemberRecentlyViewedAsync(Model.Key);
+
     var headline = Model?.Value<string>("headline")?.Trim();
     var articleTitle = Model?.Value<string>("articleTitle")?.Trim();
     var title = !string.IsNullOrWhiteSpace(articleTitle) ? articleTitle : (!string.IsNullOrWhiteSpace(headline) ? headline : Model.Name);
-    
+
     var articleDate = Model?.Value<DateTime?>("articleDate");
     var articleContributors = Model?.Value<string>("articleContributors") ?? "";
     var journal = Model?.Value<string>("journal") ?? "";
@@ -16,9 +28,7 @@
     var shortDescription = Model?.Value<string>("shortDescription") ?? "";
     var articleCopy = Model?.Value<string>("articleCopy") ?? "";
     var linkToFullArticle = Model?.Value<string>("linkToFullArticle") ?? "";
-    var metaDescription = Model?.Value<string>("metaDescription") ?? "";
 
-    // Parse link if it contains Sitecore link markup
     var articleUrl = linkToFullArticle;
     if (linkToFullArticle.Contains("url=\""))
     {
@@ -29,7 +39,6 @@
         }
     }
 
-    // Breadcrumbs
     var crumbs = Model?.AncestorsOrSelf()?.OrderBy(x => x.Level).ToList() ?? new List<IPublishedContent>();
 }
 
@@ -71,17 +80,17 @@
 
     <section class="studySubHead">
         <h2 class="listing-item-h2">@title</h2>
-        
+
         @if (!string.IsNullOrWhiteSpace(journal))
         {
             <p class="studyContributors">@journal</p>
         }
-        
+
         @if (!string.IsNullOrWhiteSpace(articleContributors))
         {
             <p class="studyContributors">@Html.Raw(articleContributors)</p>
         }
-        
+
         <div class="studyMeta">
             @if (articleDate.HasValue)
             {
@@ -112,3 +121,4 @@
     }
 
 </div>
+

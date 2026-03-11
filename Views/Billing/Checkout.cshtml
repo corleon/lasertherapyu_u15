@@ -1,0 +1,63 @@
+@model LTU_U15.Models.Commerce.CheckoutViewModel
+@{
+    Layout = "~/Views/master.cshtml";
+    var returnUrl = string.IsNullOrWhiteSpace(Model.ReturnUrl) ? "/" : Model.ReturnUrl;
+}
+
+<div class="content-wrapper content-has-breadcrumb">
+    <nav class="breadcrumb-nav">
+        <a title="Home" href="/">Home</a>
+        <a title="Members" href="/members/my-profile/">Members</a>
+        <span>Checkout</span>
+    </nav>
+
+    <header class="content-header">
+        <h1 class="content-header-h1">Checkout</h1>
+    </header>
+
+    <article class="content-article ltu-flow-stack">
+        <section class="ltu-billing-shell ltu-billing-shell--split">
+            <div class="ltu-billing-card ltu-billing-card--accent">
+                <p class="ltu-billing-kicker">Secure Checkout</p>
+                <h2 class="ltu-billing-title">Complete your purchase</h2>
+                <p class="ltu-billing-copy">You are about to unlock a paid LTU resource. Stripe will open on the next step and complete the card payment securely.</p>
+
+                <div class="ltu-flow-actions">
+                    <form method="post" action="/billing/create-session">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="contentKey" value="@Model.ContentKey" />
+                        <input type="hidden" name="returnUrl" value="@returnUrl" />
+                        <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Pay with Card</button>
+                    </form>
+
+                    <a class="ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide"
+                       href="@returnUrl"
+                       onclick="if (window.history.length > 1) { window.history.back(); return false; }">Back to Content</a>
+                </div>
+            </div>
+
+            <aside class="ltu-billing-card">
+                <p class="ltu-billing-kicker">Order Summary</p>
+                <h3 class="ltu-billing-title">Payment for: @Model.ProductName</h3>
+                <p class="ltu-billing-copy">Access is added to your member account after payment succeeds.</p>
+
+                <div class="ltu-billing-summary" style="margin-top:18px;">
+                    <div class="ltu-billing-summary__row">
+                        <span class="ltu-billing-summary__label">Product</span>
+                        <span class="ltu-billing-summary__value">@Model.ProductName</span>
+                    </div>
+                    <div class="ltu-billing-summary__row">
+                        <span class="ltu-billing-summary__label">Currency</span>
+                        <span class="ltu-billing-summary__value">@Model.Currency.ToUpperInvariant()</span>
+                    </div>
+                    <div class="ltu-billing-summary__row">
+                        <span class="ltu-billing-summary__label">Total</span>
+                        <span class="ltu-billing-summary__value ltu-billing-summary__value--price">$@Model.Price.ToString("0.00")</span>
+                    </div>
+                </div>
+
+                <p class="ltu-billing-note">If you are already logged in, your member email and available profile details are prefilled for Stripe checkout.</p>
+            </aside>
+        </section>
+    </article>
+</div>

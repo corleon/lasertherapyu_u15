@@ -211,7 +211,6 @@ jQuery(function ($) {
     //}, true).listen(250);
     
     RelatedProductsScroll();
-    CheckyCheckboxerz();
 
 
 
@@ -655,24 +654,7 @@ function RelatedProductsScroll() {
 //---------------------------------------------------
 // Checkboxerz Replacement
 //---------------------------------------------------
-function CheckyCheckboxerz() {
-	$('<a href="#" class="checkbox-link">x</a>').insertAfter('.form-item input:checkbox');
-	$('input:checked').parent().addClass('checked');
-	
-	$('.checkbox-link').off();
-	$('.checkbox-link').on('click', function(e) {
-		
-		if ($(this).parent('span').hasClass('checked')) {
-			$(this).parent('span').removeClass('checked');
-			$(this).siblings('input:checkbox').prop('checked', false);
-		}else{
-			$(this).parent('span').addClass('checked');
-			$(this).siblings('input:checkbox').prop('checked', true);
-		}
-		
-		e.preventDefault();
-	});
-}
+function CheckyCheckboxerz() {}
 
 
     jQuery(window).scroll(function() {

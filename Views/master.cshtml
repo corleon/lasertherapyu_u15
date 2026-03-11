@@ -1,6 +1,8 @@
-@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@inherits Microsoft.AspNetCore.Mvc.Razor.RazorPage<dynamic>
 @using Umbraco.Cms.Core.Security
+@using LTU_U15.Services.Commerce
 @inject IMemberManager MemberManager
+@inject ICartService CartService
 
 @{
     Layout = null;
@@ -8,6 +10,11 @@
     var currentMember = await MemberManager.GetCurrentMemberAsync();
     var isMemberLoggedIn = currentMember != null;
     var memberDisplayName = currentMember?.UserName ?? "My Profile";
+    var myProfileUrl = "/members/my-profile/";
+    var loginUrl = "/members/log-in/";
+    var cartUrl = "/cart";
+    var cartCheckoutUrl = isMemberLoggedIn ? cartUrl : "/members/log-in/?r=%2Fcart";
+    var cartSummary = await CartService.GetCartSummaryAsync();
 }
 
 <!DOCTYPE HTML>
@@ -57,6 +64,7 @@
 
     <!-- PLACE CSS/JS Here -->
     <link rel="stylesheet" href="/css/global.css?v=635163774712393350" />
+    <link rel="stylesheet" href="/css/ltu-commerce-ui.css?v=20260311-1" />
     <link rel="stylesheet" href="/css/modal.css?v=635163774851486010" />
     <script src="/scripts/laseru-plugins.js?v=635163775658768325"></script>
 
@@ -131,11 +139,11 @@
 
                             @if (isMemberLoggedIn)
                             {
-                                <a href="/members/my-profile" title="@memberDisplayName" class="header-account-link header-account-login">@memberDisplayName</a>
+                                <a href="@myProfileUrl" title="@memberDisplayName" class="header-account-link header-account-login">@memberDisplayName</a>
                             }
                             else
                             {
-                                <a href="/members/log-in" title="Log In/Register" class="header-account-link header-account-login">Log In/Register</a>
+                                <a href="@loginUrl" title="Log In/Register" class="header-account-link header-account-login">Log In/Register</a>
                             }
 
                         </li>
@@ -148,8 +156,8 @@
                     <a href="#" title="Search" class="header-search-toggle">Search</a>
 
                     <div class="header-cart">
-                        <a href="#" class="header-cart-link">
-                            <span class="header-cart-count"></span>
+                        <a href="@cartUrl" class="header-cart-link">
+                            <span class="header-cart-count @(cartSummary.Count > 0 ? "has-count" : null)">@((cartSummary.Count > 0) ? cartSummary.Count : null)</span>
 
                         </a>
                         <div class="showCart">
@@ -159,21 +167,32 @@
                                 <table>
 
                                     <tbody>
-                                        <tr>
-                                            <td>Your cart is currently empty.</td>
-                                        </tr>
+                                        @if (cartSummary.IsEmpty)
+                                        {
+                                            <tr>
+                                                <td>Your cart is currently empty.</td>
+                                            </tr>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var item in cartSummary.Items)
+                                            {
+                                                <tr>
+                                                    <td class="productTitle" colspan="2"><a href="@item.Url">@item.Name</a></td>
+                                                    <td class="price" colspan="2">$@item.Price.ToString("0.00")</td>
+                                                </tr>
+                                            }
 
-                                        <tr class="buttonTR">
-                                            <td class="quantityTotal" colspan="2"></td>
-                                            <td class="subTotal" colspan="2"></td>
-                                        </tr>
+                                            <tr class="buttonTR">
+                                                <td class="quantityTotal" colspan="2">@cartSummary.Count item(s)</td>
+                                                <td class="subTotal" colspan="2"><span class="theTotal">$@cartSummary.Subtotal.ToString("0.00")</span></td>
+                                            </tr>
+                                        }
                                     </tbody>
                                 </table>
                                 <div class="btnWrap">
-                                    <a class="btn btn-blue closeIt" href="#">Continue Shopping</a>
-
-
-                                    <a class="btn btn-green checkout" href="/members/log-in?r=cart" style="display:none;">Check Out</a>
+                                    <a class="btn btn-blue" href="@cartUrl">View Cart</a>
+                                    <a class="btn btn-green checkout" href="@cartCheckoutUrl" @(cartSummary.IsEmpty ? "style=\"display:none;\"" : null)>Check Out</a>
 
                                 </div>
                             </div>
@@ -231,7 +250,7 @@
 
                                 <li><a href="/what-is-laser-therapy" title="What is Laser Therapy">What is Laser Therapy</a></li>
 
-                                <li><a href="/members/my-profile" title="My Profile">My Profile</a></li>
+                                <li><a href="@myProfileUrl" title="My Profile">My Profile</a></li>
 
                             </ul>
                         </li>
@@ -272,8 +291,8 @@
                 <div class="header-top">
                     <div class="header-wrapper">
                         <div class="header-cart">
-                            <a href="#" class="header-cart-link">
-                                <span class="header-cart-count"></span>
+                            <a href="@cartUrl" class="header-cart-link">
+                                <span class="header-cart-count @(cartSummary.Count > 0 ? "has-count" : null)">@((cartSummary.Count > 0) ? cartSummary.Count : null)</span>
 
                                 View Cart
                             </a>
@@ -285,20 +304,32 @@
                                     <table>
 
                                         <tbody>
-                                            <tr>
-                                                <td>Your cart is currently empty.</td>
-                                            </tr>
+                                            @if (cartSummary.IsEmpty)
+                                            {
+                                                <tr>
+                                                    <td>Your cart is currently empty.</td>
+                                                </tr>
+                                            }
+                                            else
+                                            {
+                                                @foreach (var item in cartSummary.Items)
+                                                {
+                                                    <tr>
+                                                        <td class="productTitle" colspan="2"><a href="@item.Url">@item.Name</a></td>
+                                                        <td class="price" colspan="2">$@item.Price.ToString("0.00")</td>
+                                                    </tr>
+                                                }
 
-                                            <tr class="buttonTR">
-                                                <td class="quantityTotal" colspan="2"></td>
-                                                <td class="subTotal" colspan="2"></td>
-                                            </tr>
+                                                <tr class="buttonTR">
+                                                    <td class="quantityTotal" colspan="2">@cartSummary.Count item(s)</td>
+                                                    <td class="subTotal" colspan="2"><span class="theTotal">$@cartSummary.Subtotal.ToString("0.00")</span></td>
+                                                </tr>
+                                            }
                                         </tbody>
                                     </table>
                                     <div class="btnWrap">
-                                        <a class="btn btn-blue closeIt" href="#">Continue Shopping</a>
-
-                                        <a href="/members/log-in" title="Log In/Register" class="btn btn-green checkout">Login/Register to complete Purchase</a>
+                                        <a class="btn btn-blue" href="@cartUrl">View Cart</a>
+                                        <a href="@cartCheckoutUrl" title="Check Out" class="btn btn-green checkout" @(cartSummary.IsEmpty ? "style=\"display:none;\"" : null)>@(isMemberLoggedIn ? "Check Out" : "Login/Register to complete Purchase")</a>
 
 
 
@@ -311,11 +342,11 @@
                             <li class="header-account-item header-account-loginlogout">
                                 @if (isMemberLoggedIn)
                                 {
-                                    <a href="/members/my-profile" title="@memberDisplayName" class="header-account-link header-account-login">@memberDisplayName</a>
+                                    <a href="@myProfileUrl" title="@memberDisplayName" class="header-account-link header-account-login">@memberDisplayName</a>
                                 }
                                 else
                                 {
-                                    <a href="/members/log-in" title="Log In/Register" class="header-account-link header-account-login">Log In/Register</a>
+                                    <a href="@loginUrl" title="Log In/Register" class="header-account-link header-account-login">Log In/Register</a>
                                 }
 
                             </li>
@@ -399,7 +430,7 @@
 
                             <li class="site-quick-nav-link"><a title="What is Laser Therapy" href="/what-is-laser-therapy">What is Laser Therapy</a></li>
 
-                            <li class="site-quick-nav-link"><a title="My Profile" href="/members/my-profile">My Profile</a></li>
+                            <li class="site-quick-nav-link"><a title="My Profile" href="@myProfileUrl">My Profile</a></li>
 
                         </ul>
                     </nav>
@@ -579,12 +610,12 @@
 
                     <div class="modalOption">
                         <h2>Already a registered<br> site user?</h2>
-                        <a id="ctl02_hlLogin" title="Sign in here" class="btn btn-green" href="/members/log-in?r=/">Sign in here</a>
+                        <a id="ctl02_hlLogin" title="Sign in here" class="btn btn-green" href="/members/log-in/?r=/">Sign in here</a>
                     </div>
 
                     <div class="modalOption">
                         <h2>Not a registered<br> site user?</h2>
-                        <a id="ctl02_hlRegister" title="Register Here" class="btn btn-green" href="/members/registration?r=/">Register Here</a>
+                        <a id="ctl02_hlRegister" title="Register Here" class="btn btn-green" href="/members/registration/?r=/">Register Here</a>
                     </div>
 
                 </div>
@@ -619,16 +650,16 @@
                 <div class="fixWrap">
                     <h1>Login/Registration Required</h1>
 
-                    <p>You must be logged in to access Laser Therapy U content. If you are a registered user, please enter your username and password below.  Or, click on "<a href="/members/registration">register</a>" if you are new to Laser Therapy U.</p>
+                    <p>You must be logged in to access Laser Therapy U content. If you are a registered user, please enter your username and password below.  Or, click on "<a href="/members/registration/">register</a>" if you are new to Laser Therapy U.</p>
 
                     <div class="modalOption">
                         <h2></h2>
-                        <a id="ctl04_hlLogin" title="Sign in here" class="btn btn-green" href="/members/log-in?r=/">Sign in here</a>
+                        <a id="ctl04_hlLogin" title="Sign in here" class="btn btn-green" href="/members/log-in/?r=/">Sign in here</a>
                     </div>
 
                     <div class="modalOption">
                         <h2></h2>
-                        <a id="ctl04_hlRegister" title="Register Here" class="btn btn-green" href="/members/registration?r=/">Register Here</a>
+                        <a id="ctl04_hlRegister" title="Register Here" class="btn btn-green" href="/members/registration/?r=/">Register Here</a>
                     </div>
                 </div>
             </div>

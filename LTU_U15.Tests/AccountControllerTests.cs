@@ -38,7 +38,7 @@ public class AccountControllerTests
         var result = await sut.Registration(new RegisterMemberViewModel());
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/registration", redirect.Url);
+        Assert.Equal("/members/registration/", redirect.Url);
         Assert.Contains("Please fix validation errors", sut.TempData["MembershipMessage"]?.ToString());
     }
 
@@ -55,7 +55,7 @@ public class AccountControllerTests
         var result = await sut.Registration(model);
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/registration", redirect.Url);
+        Assert.Equal("/members/registration/", redirect.Url);
         Assert.Equal("Username already exists.", sut.TempData["MembershipMessage"]?.ToString());
     }
 
@@ -73,7 +73,7 @@ public class AccountControllerTests
         var result = await sut.Registration(model);
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/registration", redirect.Url);
+        Assert.Equal("/members/registration/", redirect.Url);
         Assert.Equal("Email already exists.", sut.TempData["MembershipMessage"]?.ToString());
     }
 
@@ -91,7 +91,7 @@ public class AccountControllerTests
         var result = await sut.Registration(ValidRegistrationModel());
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/registration", redirect.Url);
+        Assert.Equal("/members/registration/", redirect.Url);
         Assert.Equal("Registration failed. Please try again.", sut.TempData["MembershipMessage"]?.ToString());
     }
 
@@ -103,6 +103,7 @@ public class AccountControllerTests
         var memberService = new Mock<IMemberService>();
         memberService.Setup(x => x.GetByUsername(It.IsAny<string>())).Returns((IMember?)null);
         memberService.Setup(x => x.GetMembersByEmail(It.IsAny<string>())).Returns(Array.Empty<IMember>());
+        memberService.Setup(x => x.GetAllRoles(It.IsAny<string>())).Returns(Array.Empty<string>());
         memberService
             .Setup(x => x.CreateMemberWithIdentity(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), "Member"))
             .Returns(member.Object);
@@ -118,6 +119,7 @@ public class AccountControllerTests
         userManager
             .Setup(x => x.AddPasswordAsync(identityUser, "Password123!"))
             .ReturnsAsync(IdentityResult.Success);
+        memberService.Setup(x => x.AssignRole("john-doe", "Standard"));
 
         var signIn = new Mock<IMemberSignInManager>();
         signIn.Setup(x => x.PasswordSignInAsync("john-doe", "Password123!", true, true)).ReturnsAsync(SignInResult.Success);
@@ -128,10 +130,85 @@ public class AccountControllerTests
 
         memberService.Verify(x => x.Save(member.Object), Times.Once);
         userManager.Verify(x => x.AddPasswordAsync(identityUser, "Password123!"), Times.Once);
+        memberService.Verify(x => x.AssignRole("john-doe", "Standard"), Times.Once);
         signIn.Verify(x => x.PasswordSignInAsync("john-doe", "Password123!", true, true), Times.Once);
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/my-profile", redirect.Url);
+        Assert.Equal("/members/my-profile/", redirect.Url);
         Assert.Equal("Registration completed successfully.", sut.TempData["MembershipMessage"]?.ToString());
+    }
+
+    [Fact]
+    public async Task Registration_Post_ValidModel_SendsRegistrationNotification()
+    {
+        var member = new Mock<IMember>();
+
+        var memberService = new Mock<IMemberService>();
+        memberService.Setup(x => x.GetByUsername(It.IsAny<string>())).Returns((IMember?)null);
+        memberService.Setup(x => x.GetMembersByEmail(It.IsAny<string>())).Returns(Array.Empty<IMember>());
+        memberService.Setup(x => x.GetAllRoles(It.IsAny<string>())).Returns(Array.Empty<string>());
+        memberService
+            .Setup(x => x.CreateMemberWithIdentity(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), "Member"))
+            .Returns(member.Object);
+        memberService.Setup(x => x.AssignRole("john-doe", "Standard"));
+
+        var identityUser = new MemberIdentityUser
+        {
+            UserName = "john-doe",
+            Email = "john@example.com"
+        };
+
+        var userManager = CreateUserManagerMock();
+        userManager.Setup(x => x.FindByNameAsync("john-doe")).ReturnsAsync(identityUser);
+        userManager.Setup(x => x.AddPasswordAsync(identityUser, "Password123!")).ReturnsAsync(IdentityResult.Success);
+
+        var signIn = new Mock<IMemberSignInManager>();
+        signIn.Setup(x => x.PasswordSignInAsync("john-doe", "Password123!", true, true)).ReturnsAsync(SignInResult.Success);
+
+        var notifications = new Mock<IMembershipNotificationService>();
+        notifications.Setup(x => x.SendRegistrationCompletedAsync(It.IsAny<RegisterMemberViewModel>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = CreateController(memberService: memberService, signInManager: signIn, userManager: userManager, notificationService: notifications);
+
+        await sut.Registration(ValidRegistrationModel());
+
+        notifications.Verify(x => x.SendRegistrationCompletedAsync(
+            It.Is<RegisterMemberViewModel>(m => m.Username == "john-doe"),
+            It.Is<string>(b => b.StartsWith("http", StringComparison.OrdinalIgnoreCase)),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Registration_Post_ValidModel_WithReturnUrl_RedirectsToReturnUrl()
+    {
+        var member = new Mock<IMember>();
+
+        var memberService = new Mock<IMemberService>();
+        memberService.Setup(x => x.GetByUsername(It.IsAny<string>())).Returns((IMember?)null);
+        memberService.Setup(x => x.GetMembersByEmail(It.IsAny<string>())).Returns(Array.Empty<IMember>());
+        memberService.Setup(x => x.GetAllRoles(It.IsAny<string>())).Returns(Array.Empty<string>());
+        memberService
+            .Setup(x => x.CreateMemberWithIdentity(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), "Member"))
+            .Returns(member.Object);
+
+        var identityUser = new MemberIdentityUser { UserName = "john-doe", Email = "john@example.com" };
+        var userManager = CreateUserManagerMock();
+        userManager.Setup(x => x.FindByNameAsync("john-doe")).ReturnsAsync(identityUser);
+        userManager.Setup(x => x.AddPasswordAsync(identityUser, "Password123!")).ReturnsAsync(IdentityResult.Success);
+        memberService.Setup(x => x.AssignRole("john-doe", "Standard"));
+
+        var signIn = new Mock<IMemberSignInManager>();
+        signIn.Setup(x => x.PasswordSignInAsync("john-doe", "Password123!", true, true)).ReturnsAsync(SignInResult.Success);
+
+        var sut = CreateController(memberService: memberService, signInManager: signIn, userManager: userManager);
+
+        var model = ValidRegistrationModel();
+        model.ReturnUrl = "/billing/checkout?contentKey=test";
+
+        var result = await sut.Registration(model);
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/billing/checkout?contentKey=test", redirect.Url);
     }
 
     [Fact]
@@ -156,7 +233,7 @@ public class AccountControllerTests
         var result = await sut.LogIn(new LoginMemberViewModel());
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/log-in", redirect.Url);
+        Assert.Equal("/members/log-in/", redirect.Url);
         Assert.Equal("Please enter username and password.", sut.TempData["MembershipMessage"]?.ToString());
     }
 
@@ -171,36 +248,90 @@ public class AccountControllerTests
         var result = await sut.LogIn(new LoginMemberViewModel { Username = "user", Password = "bad" });
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/log-in", redirect.Url);
+        Assert.Equal("/members/log-in/", redirect.Url);
         Assert.Equal("Incorrect username or password.", sut.TempData["MembershipMessage"]?.ToString());
+    }
+
+    [Fact]
+    public async Task LogIn_Post_BadCredentials_WithReturnUrl_PreservesReturnUrl()
+    {
+        var signIn = new Mock<IMemberSignInManager>();
+        signIn.Setup(x => x.PasswordSignInAsync("user", "bad", true, true)).ReturnsAsync(SignInResult.Failed);
+
+        var sut = CreateController(signInManager: signIn);
+
+        var result = await sut.LogIn(new LoginMemberViewModel { Username = "user", Password = "bad", ReturnUrl = "/billing/checkout?contentKey=abc" });
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.StartsWith("/members/log-in?r=", redirect.Url, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task LogIn_Post_SuccessWithLocalReturnUrl_RedirectsToReturnUrl()
     {
+        var identityUser = new MemberIdentityUser { UserName = "user", Email = "user@example.com" };
+        var userManager = CreateUserManagerMock();
+        userManager.Setup(x => x.FindByNameAsync("user")).ReturnsAsync(identityUser);
+        var memberService = new Mock<IMemberService>();
+        memberService.Setup(x => x.GetAllRoles("user")).Returns(new[] { "Standard" });
+
         var signIn = new Mock<IMemberSignInManager>();
         signIn.Setup(x => x.PasswordSignInAsync("user", "good", true, true)).ReturnsAsync(SignInResult.Success);
 
-        var sut = CreateController(signInManager: signIn);
+        var sut = CreateController(memberService: memberService, signInManager: signIn, userManager: userManager);
 
-        var result = await sut.LogIn(new LoginMemberViewModel { Username = "user", Password = "good", ReturnUrl = "/members/my-profile" });
+        var result = await sut.LogIn(new LoginMemberViewModel { Username = "user", Password = "good", ReturnUrl = "/members/my-profile/" });
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/my-profile", redirect.Url);
+        Assert.Equal("/members/my-profile/", redirect.Url);
     }
 
     [Fact]
     public async Task LogIn_Post_SuccessWithoutReturnUrl_RedirectsToProfile()
     {
+        var identityUser = new MemberIdentityUser { UserName = "user", Email = "user@example.com" };
+        var userManager = CreateUserManagerMock();
+        userManager.Setup(x => x.FindByNameAsync("user")).ReturnsAsync(identityUser);
+        var memberService = new Mock<IMemberService>();
+        memberService.Setup(x => x.GetAllRoles("user")).Returns(new[] { "Standard" });
+
         var signIn = new Mock<IMemberSignInManager>();
         signIn.Setup(x => x.PasswordSignInAsync(It.IsAny<string>(), It.IsAny<string>(), true, true)).ReturnsAsync(SignInResult.Success);
 
-        var sut = CreateController(signInManager: signIn);
+        var sut = CreateController(memberService: memberService, signInManager: signIn, userManager: userManager);
 
         var result = await sut.LogIn(new LoginMemberViewModel { Username = "user", Password = "good" });
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/my-profile", redirect.Url);
+        Assert.Equal("/members/my-profile/", redirect.Url);
+    }
+
+    [Fact]
+    public async Task LogIn_Post_SuccessWithoutStandardRole_AddsRoleAndRefreshesSignIn()
+    {
+        var identityUser = new MemberIdentityUser { UserName = "user", Email = "user@example.com" };
+        var userManager = CreateUserManagerMock();
+        userManager.Setup(x => x.FindByNameAsync("user")).ReturnsAsync(identityUser);
+        var memberService = new Mock<IMemberService>();
+        var standardAssigned = false;
+        memberService.Setup(x => x.GetAllRoles("user")).Returns(() => standardAssigned ? new[] { "Standard" } : Array.Empty<string>());
+        memberService.Setup(x => x.AssignRole("user", "Standard")).Callback(() => standardAssigned = true);
+
+        var signIn = new Mock<IMemberSignInManager>();
+        signIn.SetupSequence(x => x.PasswordSignInAsync("user", "good", true, true))
+            .ReturnsAsync(SignInResult.Success)
+            .ReturnsAsync(SignInResult.Success);
+        signIn.Setup(x => x.SignOutAsync()).Returns(Task.CompletedTask);
+
+        var sut = CreateController(memberService: memberService, signInManager: signIn, userManager: userManager);
+
+        var result = await sut.LogIn(new LoginMemberViewModel { Username = "user", Password = "good" });
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/members/my-profile/", redirect.Url);
+        memberService.Verify(x => x.AssignRole("user", "Standard"), Times.Once);
+        signIn.Verify(x => x.SignOutAsync(), Times.Once);
+        signIn.Verify(x => x.PasswordSignInAsync("user", "good", true, true), Times.Exactly(2));
     }
 
     [Fact]
@@ -238,7 +369,7 @@ public class AccountControllerTests
         var result = await sut.ForgotUsername(new ForgotUsernameViewModel());
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/forgot-username", redirect.Url);
+        Assert.Equal("/members/forgot-username/", redirect.Url);
         Assert.Equal("Please enter a valid email.", sut.TempData["MembershipMessage"]?.ToString());
     }
 
@@ -260,7 +391,7 @@ public class AccountControllerTests
 
         emailService.Verify(x => x.SendAsync("found@example.com", It.Is<string>(s => s.Contains("username")), It.Is<string>(b => b.Contains("member-user"))), Times.Once);
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/forgot-username", redirect.Url);
+        Assert.Equal("/members/forgot-username/", redirect.Url);
         Assert.Equal("If this email exists, your username has been sent.", sut.TempData["MembershipMessage"]?.ToString());
     }
 
@@ -277,7 +408,7 @@ public class AccountControllerTests
 
         emailService.Verify(x => x.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/forgot-username", redirect.Url);
+        Assert.Equal("/members/forgot-username/", redirect.Url);
         Assert.Equal("If this email exists, your username has been sent.", sut.TempData["MembershipMessage"]?.ToString());
     }
 
@@ -301,7 +432,7 @@ public class AccountControllerTests
         var result = await sut.ForgotPassword(new ForgotPasswordViewModel());
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/forgot-password", redirect.Url);
+        Assert.Equal("/members/forgot-password/", redirect.Url);
         Assert.Equal("Please enter a valid email.", sut.TempData["MembershipMessage"]?.ToString());
     }
 
@@ -316,7 +447,7 @@ public class AccountControllerTests
         var result = await sut.ForgotPassword(new ForgotPasswordViewModel { Email = "none@example.com" });
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/forgot-password", redirect.Url);
+        Assert.Equal("/members/forgot-password/", redirect.Url);
         Assert.Equal("If this email exists, a temporary password has been sent.", sut.TempData["MembershipMessage"]?.ToString());
     }
 
@@ -352,7 +483,7 @@ public class AccountControllerTests
         userManager.Verify(x => x.ResetPasswordAsync(identityUser, "token-123", It.IsAny<string>()), Times.Once);
         emailService.Verify(x => x.SendAsync("found@example.com", It.Is<string>(s => s.Contains("temporary password")), It.Is<string>(b => b.Contains("member-user"))), Times.Once);
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/forgot-password", redirect.Url);
+        Assert.Equal("/members/forgot-password/", redirect.Url);
         Assert.Equal("If this email exists, a temporary password has been sent.", sut.TempData["MembershipMessage"]?.ToString());
     }
 
@@ -386,7 +517,7 @@ public class AccountControllerTests
 
         emailService.Verify(x => x.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/members/forgot-password", redirect.Url);
+        Assert.Equal("/members/forgot-password/", redirect.Url);
         Assert.Equal("If this email exists, a temporary password has been sent.", sut.TempData["MembershipMessage"]?.ToString());
     }
 
@@ -414,16 +545,19 @@ public class AccountControllerTests
         Mock<IMemberSignInManager>? signInManager = null,
         Mock<UserManager<MemberIdentityUser>>? userManager = null,
         Mock<IMembershipEmailService>? emailService = null,
+        Mock<IMembershipNotificationService>? notificationService = null,
         Mock<ILogger<AccountController>>? logger = null)
     {
         if (memberService == null)
         {
             memberService = new Mock<IMemberService>();
             memberService.Setup(x => x.GetMembersByEmail(It.IsAny<string>())).Returns(Array.Empty<IMember>());
+            memberService.Setup(x => x.GetAllRoles(It.IsAny<string>())).Returns(Array.Empty<string>());
         }
         signInManager ??= new Mock<IMemberSignInManager>();
         userManager ??= CreateUserManagerMock();
         emailService ??= new Mock<IMembershipEmailService>();
+        notificationService ??= new Mock<IMembershipNotificationService>();
         logger ??= new Mock<ILogger<AccountController>>();
 
         var controller = new AccountController(
@@ -431,6 +565,7 @@ public class AccountControllerTests
             signInManager.Object,
             userManager.Object,
             emailService.Object,
+            notificationService.Object,
             logger.Object);
 
         controller.ControllerContext = new ControllerContext
@@ -439,6 +574,8 @@ public class AccountControllerTests
         };
         controller.TempData = new TempDataDictionary(controller.HttpContext, Mock.Of<ITempDataProvider>());
         controller.Url = Mock.Of<IUrlHelper>(x => x.IsLocalUrl(It.IsAny<string>()) == true);
+        controller.ControllerContext.HttpContext.Request.Scheme = "https";
+        controller.ControllerContext.HttpContext.Request.Host = new HostString("localhost", 44335);
 
         return controller;
     }
@@ -446,7 +583,7 @@ public class AccountControllerTests
     private static Mock<UserManager<MemberIdentityUser>> CreateUserManagerMock()
     {
         var store = new Mock<IUserStore<MemberIdentityUser>>();
-        return new Mock<UserManager<MemberIdentityUser>>(
+        var userManager = new Mock<UserManager<MemberIdentityUser>>(
             store.Object,
             null!,
             null!,
@@ -456,5 +593,8 @@ public class AccountControllerTests
             null!,
             null!,
             null!);
+        userManager.Setup(x => x.IsInRoleAsync(It.IsAny<MemberIdentityUser>(), It.IsAny<string>())).ReturnsAsync(true);
+        userManager.Setup(x => x.AddToRoleAsync(It.IsAny<MemberIdentityUser>(), It.IsAny<string>())).ReturnsAsync(IdentityResult.Success);
+        return userManager;
     }
 }

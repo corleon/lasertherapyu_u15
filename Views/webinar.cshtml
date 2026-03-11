@@ -1,14 +1,22 @@
-﻿@using Umbraco.Extensions
+@using Umbraco.Extensions
 @using Umbraco.Cms.Core.Models.PublishedContent
+@using LTU_U15.Services.Commerce
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@inject IContentPurchaseService PurchaseService
 
 @{
-
-
-
     Layout = "master.cshtml";
 
-    // ---- Data from the veterinaryWebinar doctype ----
+    var isPaid = PurchaseService.IsPaidContent(Model);
+    if (isPaid && !await PurchaseService.CurrentMemberHasPurchasedAsync(Model.Key))
+    {
+        var checkoutUrl = $"/billing/checkout?contentKey={Model.Key}&returnUrl={Uri.EscapeDataString(Model.Url() ?? "/")}";
+        Context.Response.Redirect(checkoutUrl);
+        return;
+    }
+
+    await PurchaseService.TrackCurrentMemberRecentlyViewedAsync(Model.Key);
+
     var pageTitle = Model?.Value<string>("pageTitle")?.Trim();
     var title = (Model?.Value<string>("title")?.Trim() ?? pageTitle ?? "");
 
@@ -18,15 +26,12 @@
     var date = Model?.Value<System.DateTime?>("date");
     string dateFormatted = date.HasValue ? date.Value.ToString("M/d/yyyy") : "";
 
-    // Ancestor breadcrumbs (Home > ... > Parent)
     var crumbs = Model?.AncestorsOrSelf()?.OrderBy(x => x.Level).ToList() ?? new List<IPublishedContent>();
 
-    // Related webinars (siblings under the same Webinar List). You can tweak the algorithm later.
     var related = Model?.Siblings()?
         .Where(x => x.IsPublished()
             && (x.ContentType.Alias == "veterinaryWebinar" || x.ContentType.Alias == "webinar")
-            && x.Value<bool?>("active") != false
-        )
+            && x.Value<bool?>("active") != false)
         .OrderByDescending(x => x.Value<System.DateTime?>("date") ?? System.DateTime.MinValue)
         .Take(3)
         .ToList() ?? new List<IPublishedContent>();
@@ -35,8 +40,7 @@
     {
         var html = c?.Value<string>("description") ?? "";
         var text = html.StripHtml().Trim();
-
-        return text;@* Length <= max ? text : text.Substring(0, max).TrimEnd() + "…";*@
+        return text;
     }
 }
 
@@ -61,8 +65,6 @@
     </header>
 
     <section class="content-body">
-
-        @* ---- Video ---- *@
         @if (!string.IsNullOrWhiteSpace(videoEmbed))
         {
             <div class="content-video-player">
@@ -70,7 +72,6 @@
             </div>
         }
 
-        @* ---- Meta (length & date) ---- *@
         @if (!string.IsNullOrWhiteSpace(length) || !string.IsNullOrWhiteSpace(dateFormatted))
         {
             <dl class="listing-item-date">
@@ -87,7 +88,6 @@
             </dl>
         }
 
-        @* ---- Description ---- *@
         @if (!string.IsNullOrWhiteSpace(descriptionHtml))
         {
             <article class="content-article">
@@ -96,7 +96,6 @@
         }
     </section>
 
-    @* ---- Related Webinars (simple "more like this" by recency) ---- *@
     @if (related.Any())
     {
         <section class="related-products">
@@ -117,3 +116,4 @@
         </section>
     }
 </div>
+

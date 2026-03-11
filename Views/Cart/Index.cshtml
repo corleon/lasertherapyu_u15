@@ -1,0 +1,304 @@
+@model LTU_U15.Models.Commerce.CartPageViewModel
+@{
+    Layout = "~/Views/master.cshtml";
+
+    string FormatContentType(string alias) => alias switch
+    {
+        "webinar" => "Webinar",
+        "veterinaryWebinar" => "Veterinary Webinar",
+        "protocol" => "Protocol",
+        "research" => "Research",
+        "video" => "Video",
+        _ => alias
+    };
+}
+
+<div class="content-wrapper content-has-breadcrumb">
+    <nav class="breadcrumb-nav">
+        <a title="Home" href="/">Home</a>
+        <span>Shopping Cart</span>
+    </nav>
+
+    <header class="content-header">
+        <h1 class="content-header-h1">Shopping Cart</h1>
+    </header>
+
+    <article class="content-article cart-page">
+        @if (!string.IsNullOrWhiteSpace(Model.Message))
+        {
+            <div class="ltu-cart-page__flash">@Model.Message</div>
+        }
+
+        @if (Model.Cart.IsEmpty)
+        {
+            <div class="ltu-cart-page__empty">
+                <p class="ltu-cart-page__eyebrow">Nothing here yet</p>
+                <h2 class="ltu-cart-page__empty-title">Your cart is currently empty.</h2>
+                <p class="ltu-cart-page__empty-copy">Browse paid webinars, protocols, research, and videos, then return here to complete checkout.</p>
+                <a class="ltu-flow-btn ltu-flow-btn--accent" href="@Model.ContinueShoppingUrl">Continue Shopping</a>
+            </div>
+        }
+        else
+        {
+            <div class="ltu-cart-page__grid">
+                <div class="ltu-cart-page__items">
+                    @foreach (var item in Model.Cart.Items)
+                    {
+                        <article class="ltu-cart-page__item">
+                            <div class="ltu-cart-page__item-copy">
+                                <p class="ltu-cart-page__item-type">@FormatContentType(item.ContentTypeAlias)</p>
+                                <h2 class="ltu-cart-page__item-title"><a href="@item.Url">@item.Name</a></h2>
+                            </div>
+
+                            <div class="ltu-cart-page__item-side">
+                                <strong class="ltu-cart-page__price">$@item.Price.ToString("0.00")</strong>
+                                <form method="post" action="/cart/remove">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="contentKey" value="@item.ContentKey" />
+                                    <input type="hidden" name="returnUrl" value="/cart" />
+                                    <button type="submit" class="ltu-flow-btn ltu-flow-btn--ghost">Remove</button>
+                                </form>
+                            </div>
+                        </article>
+                    }
+                </div>
+
+                <aside class="ltu-cart-page__summary">
+                    <p class="ltu-cart-page__summary-kicker">Order Summary</p>
+                    <h2 class="ltu-cart-page__summary-title">@Model.Cart.Count item@(Model.Cart.Count == 1 ? string.Empty : "s") selected</h2>
+
+                    <div class="ltu-cart-page__summary-row">
+                        <span>Subtotal</span>
+                        <strong>$@Model.Cart.Subtotal.ToString("0.00")</strong>
+                    </div>
+
+                    <p class="ltu-cart-page__summary-copy">Secure Stripe checkout will start on the next step.</p>
+
+                    <div class="ltu-cart-page__actions">
+                        @if (Model.IsMemberLoggedIn)
+                        {
+                            <form method="post" action="/cart/create-session">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary">Check Out</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <a class="ltu-flow-btn ltu-flow-btn--primary" href="@Model.LoginUrl">Log In/Register</a>
+                        }
+
+                        <a class="ltu-flow-btn ltu-flow-btn--accent" href="@Model.ContinueShoppingUrl">Continue Shopping</a>
+
+                        <form method="post" action="/cart/clear">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="ltu-flow-btn ltu-flow-btn--ghost">Clear Cart</button>
+                        </form>
+                    </div>
+                </aside>
+            </div>
+        }
+    </article>
+</div>
+
+<style>
+    .ltu-cart-page,
+    .ltu-cart-page * {
+        box-sizing: border-box;
+    }
+
+    .ltu-cart-page__flash {
+        margin: 0 0 18px 0;
+        padding: 14px 16px;
+        border: 1px solid #d4e4ef;
+        background: linear-gradient(180deg, #f6fbff 0%, #edf7fd 100%);
+        color: #21506b;
+    }
+
+    .ltu-cart-page__empty {
+        padding: 32px;
+        border: 1px solid #d8dee3;
+        background: linear-gradient(135deg, #ffffff 0%, #f5f8fa 100%);
+        box-shadow: 0 14px 32px rgba(57, 67, 76, 0.08);
+    }
+
+    .ltu-cart-page__eyebrow {
+        margin: 0 0 10px 0;
+        color: #c11e2d;
+        font-size: 0.8em;
+        font-weight: 700;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+    }
+
+    .ltu-cart-page__empty-title {
+        margin: 0 0 12px 0;
+        color: #545654;
+        font-family: 'Kameron', serif;
+        font-size: 2em;
+        line-height: 1.1;
+    }
+
+    .ltu-cart-page__empty-copy {
+        margin: 0 0 20px 0;
+        max-width: 560px;
+        color: #66717b;
+        line-height: 1.65;
+    }
+
+    .ltu-cart-page__grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.45fr) minmax(280px, .85fr);
+        gap: 24px;
+        align-items: start;
+    }
+
+    .ltu-cart-page__items {
+        display: grid;
+        gap: 16px;
+    }
+
+    .ltu-cart-page__item {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 20px;
+        border: 1px solid #d8dee3;
+        border-left: 5px solid #0065a1;
+        background: #fff;
+        box-shadow: 0 12px 24px rgba(57, 67, 76, 0.07);
+    }
+
+    .ltu-cart-page__item-copy {
+        min-width: 0;
+    }
+
+    .ltu-cart-page__item-type {
+        margin: 0 0 8px 0;
+        color: #0065a1;
+        font-size: 0.78em;
+        font-weight: 700;
+        letter-spacing: .10em;
+        text-transform: uppercase;
+    }
+
+    .ltu-cart-page__item-title {
+        margin: 0;
+        color: #545654;
+        font-family: 'Kameron', serif;
+        font-size: 1.35em;
+        line-height: 1.3;
+    }
+
+    .ltu-cart-page__item-title a,
+    .ltu-cart-page__item-title a:visited {
+        color: #1f2d38;
+        text-decoration: none;
+    }
+
+    .ltu-cart-page__item-title a:hover {
+        color: #0065a1;
+    }
+
+    .ltu-cart-page__item-side {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 12px;
+        flex-shrink: 0;
+    }
+
+    .ltu-cart-page__price {
+        color: #006738;
+        font-family: 'Kameron', serif;
+        font-size: 1.4em;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .ltu-cart-page__summary {
+        padding: 24px;
+        border: 1px solid #c7ccd1;
+        background:
+            radial-gradient(circle at top right, rgba(43,124,191,.18), transparent 35%),
+            linear-gradient(180deg, #545654 0%, #3e403e 100%);
+        box-shadow: 0 18px 34px rgba(52, 53, 52, 0.18);
+    }
+
+    .ltu-cart-page__summary-kicker {
+        margin: 0 0 10px 0;
+        color: rgba(255,255,255,.72);
+        font-size: 0.78em;
+        font-weight: 700;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+    }
+
+    .ltu-cart-page__summary-title {
+        margin: 0 0 18px 0;
+        color: #fff;
+        font-family: 'Kameron', serif;
+        font-size: 1.8em;
+        line-height: 1.15;
+    }
+
+    .ltu-cart-page__summary-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+        padding: 14px 0;
+        border-top: 1px solid rgba(255,255,255,.14);
+        border-bottom: 1px solid rgba(255,255,255,.14);
+        color: #fff;
+    }
+
+    .ltu-cart-page__summary-copy {
+        margin: 0 0 18px 0;
+        color: rgba(255,255,255,.78);
+        line-height: 1.6;
+    }
+
+    .ltu-cart-page__actions {
+        display: grid;
+        gap: 12px;
+    }
+
+    .ltu-cart-page__actions form {
+        margin: 0;
+        width: 100%;
+    }
+
+    .ltu-cart-page__actions .ltu-flow-btn,
+    .ltu-cart-page__actions button.ltu-flow-btn,
+    .ltu-cart-page__actions a.ltu-flow-btn {
+        width: 100%;
+        max-width: none;
+    }
+
+    .ltu-cart-page__item-side .ltu-flow-btn,
+    .ltu-cart-page__item-side button.ltu-flow-btn {
+        min-width: 116px;
+    }
+
+    @@media screen and (max-width: 960px) {
+        .ltu-cart-page__grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media screen and (max-width: 650px) {
+        .ltu-cart-page__empty,
+        .ltu-cart-page__item,
+        .ltu-cart-page__summary {
+            padding: 18px;
+        }
+
+        .ltu-cart-page__item {
+            flex-direction: column;
+        }
+
+        .ltu-cart-page__item-side {
+            align-items: flex-start;
+        }
+    }
+</style>

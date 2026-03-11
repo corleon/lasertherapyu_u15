@@ -1,23 +1,29 @@
 using System.Net;
 using System.Net.Mail;
-using Microsoft.Extensions.Options;
+using LTU_U15.Services.Site;
 
 namespace LTU_U15.Services.Membership;
 
 public sealed class MembershipEmailService : IMembershipEmailService
 {
-    private readonly IOptions<MembershipEmailSettings> _settings;
+    private readonly ISiteSettingsService _siteSettingsService;
     private readonly ILogger<MembershipEmailService> _logger;
 
-    public MembershipEmailService(IOptions<MembershipEmailSettings> settings, ILogger<MembershipEmailService> logger)
+    public MembershipEmailService(ISiteSettingsService siteSettingsService, ILogger<MembershipEmailService> logger)
     {
-        _settings = settings;
+        _siteSettingsService = siteSettingsService;
         _logger = logger;
     }
 
     public async Task SendAsync(string to, string subject, string body)
+        => await SendCoreAsync(to, subject, body, isBodyHtml: false);
+
+    public async Task SendHtmlAsync(string to, string subject, string body)
+        => await SendCoreAsync(to, subject, body, isBodyHtml: true);
+
+    private async Task SendCoreAsync(string to, string subject, string body, bool isBodyHtml)
     {
-        var cfg = _settings.Value;
+        var cfg = (await _siteSettingsService.GetAsync()).Email;
         if (string.IsNullOrWhiteSpace(cfg.Host) || string.IsNullOrWhiteSpace(cfg.From))
         {
             _logger.LogWarning("Membership email settings are not configured. Skipping email to {Email}", to);
@@ -26,17 +32,23 @@ public sealed class MembershipEmailService : IMembershipEmailService
 
         using var message = new MailMessage(cfg.From, to, subject, body)
         {
-            IsBodyHtml = false
+            IsBodyHtml = isBodyHtml
         };
+        message.BodyEncoding = System.Text.Encoding.UTF8;
+        message.SubjectEncoding = System.Text.Encoding.UTF8;
 
-        using var client = new SmtpClient(cfg.Host, cfg.Port)
+        using var client = new SmtpClient
         {
+            Host = cfg.Host,
+            Port = cfg.Port,
             EnableSsl = cfg.EnableSsl,
             DeliveryMethod = SmtpDeliveryMethod.Network,
             UseDefaultCredentials = false,
+            Timeout = 600000,
             Credentials = new NetworkCredential(cfg.Username, cfg.Password)
         };
+        client.ServicePoint.MaxIdleTime = 2;
 
-        await client.SendMailAsync(message);
+        client.Send(message);
     }
 }
