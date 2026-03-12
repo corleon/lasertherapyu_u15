@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Net;
+using System.Text;
 using System.Text.Json;
 using LTU_U15.Models.Commerce;
 using Umbraco.Cms.Core.Models.PublishedContent;
@@ -16,7 +18,13 @@ public sealed class ContentPurchaseService : IContentPurchaseService
     private const string PurchasedContentSummaryAlias = "purchasedContentSummary";
     private const string RecentlyViewedContentHistoryAlias = "recentlyViewedContentHistory";
     private const string RecentlyViewedContentSummaryAlias = "recentlyViewedContentSummary";
-    private const int MaxRecentlyViewedItems = 12;
+    private const string SubscriptionPlanAlias = "subscriptionPlan";
+    private const string SubscriptionStatusAlias = "subscriptionStatus";
+    private const string SubscriptionExpiresUtcAlias = "subscriptionExpiresUtc";
+    private const string SubscriptionLastPaymentIntentIdAlias = "subscriptionLastPaymentIntentId";
+    private const string SubscriptionHistoryAlias = "subscriptionHistory";
+    private const string SubscriptionSummaryAlias = "subscriptionSummary";
+    private const int MaxRecentlyViewedItems = 20;
 
     private readonly IMemberManager _memberManager;
     private readonly IMemberService _memberService;
@@ -139,6 +147,11 @@ public sealed class ContentPurchaseService : IContentPurchaseService
             return false;
         }
 
+        if (MemberHasActiveSubscription(member, DateTime.UtcNow))
+        {
+            return true;
+        }
+
         var purchased = ParsePurchasedKeys(member.GetValue<string>(PurchasedContentKeysAlias));
         return purchased.Contains(contentKey);
     }
@@ -255,6 +268,86 @@ public sealed class ContentPurchaseService : IContentPurchaseService
         return Task.FromResult(PurchaseRecordResult.Added);
     }
 
+    public async Task<bool> CurrentMemberHasActiveSubscriptionAsync(CancellationToken cancellationToken = default)
+    {
+        var memberKey = await GetCurrentMemberKeyAsync(cancellationToken);
+        if (!memberKey.HasValue)
+        {
+            return false;
+        }
+
+        var member = _memberService.GetByKey(memberKey.Value);
+        return member != null && MemberHasActiveSubscription(member, DateTime.UtcNow);
+    }
+
+    public async Task<MemberSubscriptionStatusModel?> GetCurrentMemberSubscriptionStatusAsync(CancellationToken cancellationToken = default)
+    {
+        var memberKey = await GetCurrentMemberKeyAsync(cancellationToken);
+        if (!memberKey.HasValue)
+        {
+            return null;
+        }
+
+        var member = _memberService.GetByKey(memberKey.Value);
+        if (member == null)
+        {
+            return null;
+        }
+
+        var expiresAtUtc = ParseUtc(GetMemberValue(member, SubscriptionExpiresUtcAlias));
+        var isActive = MemberHasActiveSubscription(member, DateTime.UtcNow);
+
+        return new MemberSubscriptionStatusModel
+        {
+            IsActive = isActive,
+            PlanCode = GetMemberValue(member, SubscriptionPlanAlias),
+            PlanName = GetMemberValue(member, SubscriptionPlanAlias),
+            ExpiresAtUtc = expiresAtUtc,
+            LastPaymentIntentId = GetMemberValue(member, SubscriptionLastPaymentIntentIdAlias)
+        };
+    }
+
+    public Task<bool> ActivateSubscriptionAsync(Guid memberKey, SubscriptionActivationRequest request, CancellationToken cancellationToken = default)
+    {
+        if (request.DurationMonths <= 0)
+        {
+            return Task.FromResult(false);
+        }
+
+        var member = _memberService.GetByKey(memberKey);
+        if (member == null)
+        {
+            return Task.FromResult(false);
+        }
+
+        var utcNow = DateTime.UtcNow;
+        var currentExpiry = ParseUtc(GetMemberValue(member, SubscriptionExpiresUtcAlias));
+        var baseDate = currentExpiry.HasValue && currentExpiry.Value > utcNow ? currentExpiry.Value : utcNow;
+        var nextExpiry = baseDate.AddMonths(request.DurationMonths);
+
+        var history = ParseSubscriptionHistory(GetMemberValue(member, SubscriptionHistoryAlias));
+        history.Add(new SubscriptionRecord
+        {
+            PlanCode = request.PlanCode,
+            PlanName = request.PlanName,
+            DurationMonths = request.DurationMonths,
+            Price = request.Price,
+            PaymentIntentId = request.PaymentIntentId,
+            ActivatedAtUtc = utcNow,
+            ExpiresAtUtc = nextExpiry
+        });
+
+        SetMemberValue(member, SubscriptionPlanAlias, request.PlanName);
+        SetMemberValue(member, SubscriptionStatusAlias, "Active");
+        SetMemberValue(member, SubscriptionExpiresUtcAlias, nextExpiry.ToString("O"));
+        SetMemberValue(member, SubscriptionLastPaymentIntentIdAlias, request.PaymentIntentId ?? string.Empty);
+        SetMemberValue(member, SubscriptionHistoryAlias, SerializeSubscriptionHistory(history));
+        SetMemberValue(member, SubscriptionSummaryAlias, BuildSubscriptionSummary(history));
+        _memberService.Save(member);
+
+        return Task.FromResult(true);
+    }
+
     public async Task TrackCurrentMemberRecentlyViewedAsync(Guid contentKey, CancellationToken cancellationToken = default)
     {
         var memberKey = await GetCurrentMemberKeyAsync(cancellationToken);
@@ -277,11 +370,12 @@ public sealed class ContentPurchaseService : IContentPurchaseService
         }
 
         var history = ParseRecentlyViewedHistory(member.GetValue<string>(RecentlyViewedContentHistoryAlias));
+        var utcNow = DateTime.UtcNow;
         history.RemoveAll(x => x.ContentKey == contentKey);
         history.Insert(0, new RecentlyViewedRecord
         {
             ContentKey = contentKey,
-            ViewedAtUtc = DateTime.UtcNow,
+            ViewedAtUtc = utcNow,
             ProductName = ResolveTitle(content),
             ProductUrl = content.Url(),
             SectionName = ResolveSectionName(content)
@@ -289,7 +383,12 @@ public sealed class ContentPurchaseService : IContentPurchaseService
 
         if (history.Count > MaxRecentlyViewedItems)
         {
-            history = history.Take(MaxRecentlyViewedItems).ToList();
+            var cutoffUtc = utcNow.AddMonths(-1);
+            history = history
+                .Where(x => x.ViewedAtUtc >= cutoffUtc)
+                .OrderByDescending(x => x.ViewedAtUtc)
+                .Take(MaxRecentlyViewedItems)
+                .ToList();
         }
 
         member.SetValue(RecentlyViewedContentHistoryAlias, SerializeRecentlyViewedHistory(history));
@@ -428,25 +527,32 @@ public sealed class ContentPurchaseService : IContentPurchaseService
 
     private static string BuildPurchaseSummary(IEnumerable<PurchasedContentRecord> history)
     {
-        return string.Join(
-            Environment.NewLine + Environment.NewLine,
-            history
-                .OrderByDescending(x => x.PurchasedAtUtc)
-                .Select(x =>
-                {
-                    var lines = new List<string>
-                    {
-                        $"Product: {x.ProductName ?? "Unknown"}",
-                        $"Purchased: {x.PurchasedAtUtc:u}",
-                        $"Price: {(x.PricePaid.HasValue ? $"${x.PricePaid.Value:0.00}" : "-")}",
-                        $"Content Key: {x.ContentKey}",
-                        $"Public Url: {x.ProductUrl ?? "-"}",
-                        $"Backoffice Url: {(string.IsNullOrWhiteSpace(x.BackofficeUrl) ? "-" : x.BackofficeUrl)}",
-                        $"Payment ID: {(string.IsNullOrWhiteSpace(x.PaymentIntentId) ? "-" : x.PaymentIntentId)}"
-                    };
+        var ordered = history.OrderByDescending(x => x.PurchasedAtUtc).ToList();
+        if (ordered.Count == 0)
+        {
+            return "<p>No purchases recorded.</p>";
+        }
 
-                    return string.Join(Environment.NewLine, lines);
-                }));
+        var sb = new StringBuilder();
+        sb.Append("<table><thead><tr>");
+        sb.Append("<th>Product</th><th>Purchased (UTC)</th><th>Price</th><th>Public</th><th>Backoffice</th><th>Payment ID</th><th>Content Key</th>");
+        sb.Append("</tr></thead><tbody>");
+
+        foreach (var item in ordered)
+        {
+            sb.Append("<tr>");
+            sb.Append("<td>").Append(HtmlEncode(item.ProductName ?? "Unknown")).Append("</td>");
+            sb.Append("<td>").Append(item.PurchasedAtUtc.ToString("yyyy-MM-dd HH:mm")).Append("</td>");
+            sb.Append("<td>").Append(item.PricePaid.HasValue ? $"${item.PricePaid.Value:0.00}" : "-").Append("</td>");
+            sb.Append("<td>").Append(BuildHtmlLink(item.ProductUrl, "Open")).Append("</td>");
+            sb.Append("<td>").Append(BuildHtmlLink(item.BackofficeUrl, "View")).Append("</td>");
+            sb.Append("<td>").Append(HtmlEncode(string.IsNullOrWhiteSpace(item.PaymentIntentId) ? "-" : item.PaymentIntentId)).Append("</td>");
+            sb.Append("<td><code>").Append(HtmlEncode(item.ContentKey.ToString())).Append("</code></td>");
+            sb.Append("</tr>");
+        }
+
+        sb.Append("</tbody></table>");
+        return sb.ToString();
     }
 
     private static List<RecentlyViewedRecord> ParseRecentlyViewedHistory(string? raw)
@@ -473,21 +579,145 @@ public sealed class ContentPurchaseService : IContentPurchaseService
 
     private static string BuildRecentlyViewedSummary(IEnumerable<RecentlyViewedRecord> history)
     {
-        return string.Join(
-            Environment.NewLine + Environment.NewLine,
-            history
-                .OrderByDescending(x => x.ViewedAtUtc)
-                .Select(x => string.Join(
-                    Environment.NewLine,
-                    new[]
-                    {
-                        $"Section: {x.SectionName ?? "Content"}",
-                        $"Product: {x.ProductName ?? "Unknown"}",
-                        $"Viewed: {x.ViewedAtUtc:u}",
-                        $"Content Key: {x.ContentKey}",
-                        $"Public Url: {x.ProductUrl ?? "-"}"
-                    })));
+        var ordered = history.OrderByDescending(x => x.ViewedAtUtc).ToList();
+        if (ordered.Count == 0)
+        {
+            return "<p>No recently viewed products.</p>";
+        }
+
+        var sb = new StringBuilder();
+        sb.Append("<table><thead><tr>");
+        sb.Append("<th>Section</th><th>Product</th><th>Viewed (UTC)</th><th>Public</th><th>Content Key</th>");
+        sb.Append("</tr></thead><tbody>");
+
+        foreach (var item in ordered)
+        {
+            sb.Append("<tr>");
+            sb.Append("<td>").Append(HtmlEncode(item.SectionName ?? "Content")).Append("</td>");
+            sb.Append("<td>").Append(HtmlEncode(item.ProductName ?? "Unknown")).Append("</td>");
+            sb.Append("<td>").Append(item.ViewedAtUtc.ToString("yyyy-MM-dd HH:mm")).Append("</td>");
+            sb.Append("<td>").Append(BuildHtmlLink(item.ProductUrl, "Open")).Append("</td>");
+            sb.Append("<td><code>").Append(HtmlEncode(item.ContentKey.ToString())).Append("</code></td>");
+            sb.Append("</tr>");
+        }
+
+        sb.Append("</tbody></table>");
+        return sb.ToString();
     }
+
+    private static bool MemberHasActiveSubscription(Umbraco.Cms.Core.Models.IMember member, DateTime utcNow)
+    {
+        var expiresAtUtc = ParseUtc(GetMemberValue(member, SubscriptionExpiresUtcAlias));
+        if (!expiresAtUtc.HasValue || expiresAtUtc.Value <= utcNow)
+        {
+            return false;
+        }
+
+        var status = GetMemberValue(member, SubscriptionStatusAlias);
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return true;
+        }
+
+        return string.Equals(status, "active", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? GetMemberValue(Umbraco.Cms.Core.Models.IMember member, string alias)
+    {
+        if (member.Properties.All(x => !x.Alias.InvariantEquals(alias)))
+        {
+            return null;
+        }
+
+        return member.GetValue<string>(alias);
+    }
+
+    private static void SetMemberValue(Umbraco.Cms.Core.Models.IMember member, string alias, object? value)
+    {
+        if (member.Properties.All(x => !x.Alias.InvariantEquals(alias)))
+        {
+            return;
+        }
+
+        member.SetValue(alias, value);
+    }
+
+    private static DateTime? ParseUtc(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        return DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed)
+            ? parsed.ToUniversalTime()
+            : null;
+    }
+
+    private static List<SubscriptionRecord> ParseSubscriptionHistory(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return new List<SubscriptionRecord>();
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<SubscriptionRecord>>(raw) ?? new List<SubscriptionRecord>();
+        }
+        catch
+        {
+            return new List<SubscriptionRecord>();
+        }
+    }
+
+    private static string SerializeSubscriptionHistory(List<SubscriptionRecord> history)
+    {
+        return JsonSerializer.Serialize(history.OrderByDescending(x => x.ActivatedAtUtc));
+    }
+
+    private static string BuildSubscriptionSummary(IEnumerable<SubscriptionRecord> history)
+    {
+        var ordered = history.OrderByDescending(x => x.ActivatedAtUtc).ToList();
+        if (ordered.Count == 0)
+        {
+            return "<p>No subscriptions recorded.</p>";
+        }
+
+        var sb = new StringBuilder();
+        sb.Append("<table><thead><tr>");
+        sb.Append("<th>Plan</th><th>Duration (months)</th><th>Price</th><th>Activated (UTC)</th><th>Expires (UTC)</th><th>Payment ID</th>");
+        sb.Append("</tr></thead><tbody>");
+
+        foreach (var item in ordered)
+        {
+            sb.Append("<tr>");
+            sb.Append("<td>").Append(HtmlEncode($"{item.PlanName} ({item.PlanCode})")).Append("</td>");
+            sb.Append("<td>").Append(item.DurationMonths).Append("</td>");
+            sb.Append("<td>").Append($"${item.Price:0.00}").Append("</td>");
+            sb.Append("<td>").Append(item.ActivatedAtUtc.ToString("yyyy-MM-dd HH:mm")).Append("</td>");
+            sb.Append("<td>").Append(item.ExpiresAtUtc.ToString("yyyy-MM-dd HH:mm")).Append("</td>");
+            sb.Append("<td>").Append(HtmlEncode(string.IsNullOrWhiteSpace(item.PaymentIntentId) ? "-" : item.PaymentIntentId)).Append("</td>");
+            sb.Append("</tr>");
+        }
+
+        sb.Append("</tbody></table>");
+        return sb.ToString();
+    }
+
+    private static string BuildHtmlLink(string? url, string text)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return "-";
+        }
+
+        var safeUrl = HtmlEncode(url);
+        var safeText = HtmlEncode(text);
+        return $"<a href=\"{safeUrl}\" target=\"_blank\" rel=\"noopener\">{safeText}</a>";
+    }
+
+    private static string HtmlEncode(string value) => WebUtility.HtmlEncode(value);
 
     private sealed class PurchasedContentRecord
     {
@@ -507,5 +737,16 @@ public sealed class ContentPurchaseService : IContentPurchaseService
         public string? ProductName { get; set; }
         public string? ProductUrl { get; set; }
         public string? SectionName { get; set; }
+    }
+
+    private sealed class SubscriptionRecord
+    {
+        public string PlanCode { get; set; } = string.Empty;
+        public string PlanName { get; set; } = string.Empty;
+        public int DurationMonths { get; set; }
+        public decimal Price { get; set; }
+        public string? PaymentIntentId { get; set; }
+        public DateTime ActivatedAtUtc { get; set; }
+        public DateTime ExpiresAtUtc { get; set; }
     }
 }

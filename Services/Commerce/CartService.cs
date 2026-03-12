@@ -20,6 +20,16 @@ public sealed class CartService : ICartService
     public async Task<CartSummaryModel> GetCartSummaryAsync(CancellationToken cancellationToken = default)
     {
         var contentKeys = ReadCartKeys();
+        if (await _purchaseService.CurrentMemberHasActiveSubscriptionAsync(cancellationToken))
+        {
+            if (contentKeys.Count > 0)
+            {
+                WriteCartKeys(Array.Empty<Guid>());
+            }
+
+            return new CartSummaryModel();
+        }
+
         var purchasedKeys = await _purchaseService.GetCurrentMemberPurchasedKeysAsync(cancellationToken);
         if (purchasedKeys.Count > 0)
         {

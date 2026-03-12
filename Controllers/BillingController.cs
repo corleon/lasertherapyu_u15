@@ -196,6 +196,57 @@ public sealed class BillingController : Controller
                 return Ok();
             }
 
+            if (data.PurchaseType == StripeCheckoutPurchaseType.Subscription)
+            {
+                if (!data.SubscriptionDurationMonths.HasValue || !data.SubscriptionPrice.HasValue)
+                {
+                    _logger.LogWarning("Stripe subscription event is missing duration/price metadata for member {MemberKey}", data.MemberKey);
+                    return Ok();
+                }
+
+                var activated = await _purchaseService.ActivateSubscriptionAsync(data.MemberKey, new SubscriptionActivationRequest
+                {
+                    PlanCode = data.SubscriptionPlanCode ?? "subscription",
+                    PlanName = data.SubscriptionPlanName ?? "Subscription",
+                    DurationMonths = data.SubscriptionDurationMonths.Value,
+                    Price = data.SubscriptionPrice.Value,
+                    PaymentIntentId = data.PaymentIntentId
+                });
+
+                if (!activated)
+                {
+                    _logger.LogWarning("Could not activate subscription for member {MemberKey}", data.MemberKey);
+                    return Ok();
+                }
+
+                _logger.LogInformation(
+                    "Stripe subscription activated. PaymentIntentId: {PaymentIntentId}; MemberKey: {MemberKey}; Plan: {Plan}; DurationMonths: {DurationMonths}; Price: {Price}; PaymentStatus: {PaymentStatus}",
+                    data.PaymentIntentId,
+                    data.MemberKey,
+                    data.SubscriptionPlanName ?? data.SubscriptionPlanCode,
+                    data.SubscriptionDurationMonths,
+                    data.SubscriptionPrice,
+                    data.PaymentStatus);
+
+                try
+                {
+                    var baseUrl = $"{Request.Scheme}://{Request.Host}";
+                    await _membershipNotificationService.SendSubscriptionActivatedAsync(
+                        data.MemberKey,
+                        data.SubscriptionPlanName ?? "Subscription",
+                        data.SubscriptionDurationMonths.Value,
+                        data.SubscriptionPrice.Value,
+                        data.PaymentIntentId,
+                        baseUrl);
+                }
+                catch (Exception emailEx)
+                {
+                    _logger.LogError(emailEx, "Subscription notification email sending failed for member {MemberKey}", data.MemberKey);
+                }
+
+                return Ok();
+            }
+
             var addedContentKeys = new List<Guid>();
             foreach (var contentKey in data.ContentKeys)
             {

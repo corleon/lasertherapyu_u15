@@ -46,6 +46,7 @@ public sealed class StripePaymentGateway : IStripePaymentGateway
             Metadata = new Dictionary<string, string>
             {
                 ["memberKey"] = request.MemberKey.ToString(),
+                ["purchaseType"] = request.PurchaseType == StripeCheckoutPurchaseType.Subscription ? "subscription" : "content",
                 ["contentKey"] = contentKeys[0].ToString(),
                 ["contentKeys"] = string.Join(",", contentKeys)
             },
@@ -54,6 +55,7 @@ public sealed class StripePaymentGateway : IStripePaymentGateway
                 Metadata = new Dictionary<string, string>
                 {
                     ["memberKey"] = request.MemberKey.ToString(),
+                    ["purchaseType"] = request.PurchaseType == StripeCheckoutPurchaseType.Subscription ? "subscription" : "content",
                     ["contentKey"] = contentKeys[0].ToString(),
                     ["contentKeys"] = string.Join(",", contentKeys)
                 }
@@ -73,6 +75,19 @@ public sealed class StripePaymentGateway : IStripePaymentGateway
                 }
             }).ToList()
         };
+
+        if (request.PurchaseType == StripeCheckoutPurchaseType.Subscription)
+        {
+            options.Metadata["subscriptionPlanCode"] = request.SubscriptionPlanCode ?? string.Empty;
+            options.Metadata["subscriptionPlanName"] = request.SubscriptionPlanName ?? string.Empty;
+            options.Metadata["subscriptionDurationMonths"] = (request.SubscriptionDurationMonths ?? 0).ToString(CultureInfo.InvariantCulture);
+            options.Metadata["subscriptionPrice"] = (request.SubscriptionPrice ?? 0m).ToString(CultureInfo.InvariantCulture);
+
+            options.PaymentIntentData.Metadata["subscriptionPlanCode"] = request.SubscriptionPlanCode ?? string.Empty;
+            options.PaymentIntentData.Metadata["subscriptionPlanName"] = request.SubscriptionPlanName ?? string.Empty;
+            options.PaymentIntentData.Metadata["subscriptionDurationMonths"] = (request.SubscriptionDurationMonths ?? 0).ToString(CultureInfo.InvariantCulture);
+            options.PaymentIntentData.Metadata["subscriptionPrice"] = (request.SubscriptionPrice ?? 0m).ToString(CultureInfo.InvariantCulture);
+        }
 
         var service = new SessionService();
         var session = await service.CreateAsync(options, cancellationToken: cancellationToken);
@@ -104,6 +119,41 @@ public sealed class StripePaymentGateway : IStripePaymentGateway
             throw new InvalidOperationException("Stripe payment intent has invalid memberKey metadata.");
         }
 
+        paymentIntent.Metadata.TryGetValue("purchaseType", out var purchaseTypeRaw);
+        var purchaseType = string.Equals(purchaseTypeRaw, "subscription", StringComparison.OrdinalIgnoreCase)
+            ? StripeCheckoutPurchaseType.Subscription
+            : StripeCheckoutPurchaseType.Content;
+
+        if (purchaseType == StripeCheckoutPurchaseType.Subscription)
+        {
+            paymentIntent.Metadata.TryGetValue("subscriptionPlanCode", out var planCode);
+            paymentIntent.Metadata.TryGetValue("subscriptionPlanName", out var planName);
+            paymentIntent.Metadata.TryGetValue("subscriptionDurationMonths", out var durationMonthsRaw);
+            paymentIntent.Metadata.TryGetValue("subscriptionPrice", out var subscriptionPriceRaw);
+
+            if (!int.TryParse(durationMonthsRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var durationMonths) || durationMonths <= 0)
+            {
+                throw new InvalidOperationException("Stripe payment intent has invalid subscription duration metadata.");
+            }
+
+            if (!decimal.TryParse(subscriptionPriceRaw, NumberStyles.Number, CultureInfo.InvariantCulture, out var subscriptionPrice) || subscriptionPrice <= 0)
+            {
+                throw new InvalidOperationException("Stripe payment intent has invalid subscription price metadata.");
+            }
+
+            return new StripeCheckoutCompletedEvent
+            {
+                MemberKey = memberKey,
+                PurchaseType = StripeCheckoutPurchaseType.Subscription,
+                SubscriptionPlanCode = string.IsNullOrWhiteSpace(planCode) ? null : planCode,
+                SubscriptionPlanName = string.IsNullOrWhiteSpace(planName) ? "Subscription" : planName,
+                SubscriptionDurationMonths = durationMonths,
+                SubscriptionPrice = subscriptionPrice,
+                PaymentStatus = paymentIntent.Status ?? string.Empty,
+                PaymentIntentId = paymentIntent.Id
+            };
+        }
+
         if (!paymentIntent.Metadata.TryGetValue("contentKeys", out var contentKeysRaw) || string.IsNullOrWhiteSpace(contentKeysRaw))
         {
             if (!paymentIntent.Metadata.TryGetValue("contentKey", out var contentKeyRaw) || string.IsNullOrWhiteSpace(contentKeyRaw))
@@ -129,6 +179,7 @@ public sealed class StripePaymentGateway : IStripePaymentGateway
         return new StripeCheckoutCompletedEvent
         {
             MemberKey = memberKey,
+            PurchaseType = StripeCheckoutPurchaseType.Content,
             ContentKeys = contentKeys,
             PaymentStatus = paymentIntent.Status ?? string.Empty,
             PaymentIntentId = paymentIntent.Id

@@ -8,6 +8,7 @@
 @{
     Layout = "master.cshtml";
     var purchasedKeys = await PurchaseService.GetCurrentMemberPurchasedKeysAsync();
+    var hasActiveSubscription = await PurchaseService.CurrentMemberHasActiveSubscriptionAsync();
 
     // Get all protocols under this list page
     var allProtocols = Model!.Children()
@@ -74,7 +75,7 @@
 
                 var priceDisplay = GetPrice(p);
                 var isPaid = PurchaseService.IsPaidContent(p);
-                var isPurchased = isPaid && purchasedKeys.Contains(p.Key);
+                var isPurchased = isPaid && (hasActiveSubscription || purchasedKeys.Contains(p.Key));
                 var primaryActionClass = isPurchased
                     ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide"
                     : isPaid
@@ -115,6 +116,9 @@
                                     <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
                                     <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Add to Cart</button>
                                 </form>
+                            </li>
+                            <li class="listing-item-btn">
+                                <a class="ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide" href="/subscriptions?r=@Uri.EscapeDataString(p.Url() ?? "/protocols")">Subscribe</a>
                             </li>
                         }
                     </ul>

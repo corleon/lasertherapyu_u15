@@ -30,6 +30,8 @@
                         <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Pay with Card</button>
                     </form>
 
+                    <a class="ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide" href="/subscriptions?r=@Uri.EscapeDataString(returnUrl)">Get Subscription Access</a>
+
                     <a class="ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide"
                        href="@returnUrl"
                        onclick="if (window.history.length > 1) { window.history.back(); return false; }">Back to Content</a>
@@ -56,7 +58,7 @@
                     </div>
                 </div>
 
-                <p class="ltu-billing-note">If you are already logged in, your member email and available profile details are prefilled for Stripe checkout.</p>
+                <p class="ltu-billing-note">If you are already logged in, your member email and available profile details are prefilled for Stripe checkout. You can also activate subscription access to unlock all paid content.</p>
             </aside>
         </section>
     </article>

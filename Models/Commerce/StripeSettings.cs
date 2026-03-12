@@ -8,4 +8,6 @@ public sealed class StripeSettings
     public decimal DefaultWebinarPrice { get; set; } = 29.95m;
     public decimal DefaultVideoPrice { get; set; } = 29.95m;
     public decimal DefaultResearchPrice { get; set; } = 29.95m;
+    public decimal ThreeMonthSubscriptionPrice { get; set; } = 199.00m;
+    public decimal TwelveMonthSubscriptionPrice { get; set; } = 499.00m;
 }

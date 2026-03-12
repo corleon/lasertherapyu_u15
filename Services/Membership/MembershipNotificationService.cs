@@ -149,6 +149,64 @@ public sealed class MembershipNotificationService : IMembershipNotificationServi
         }
     }
 
+    public async Task SendSubscriptionActivatedAsync(Guid memberKey, string planName, int durationMonths, decimal price, string? paymentIntentId, string baseUrl, CancellationToken cancellationToken = default)
+    {
+        var member = _memberService.GetByKey(memberKey);
+        if (member == null || string.IsNullOrWhiteSpace(member.Email))
+        {
+            _logger.LogWarning("Subscription notification skipped because member {MemberKey} could not be loaded.", memberKey);
+            return;
+        }
+
+        var settings = await _siteSettingsService.GetAsync(cancellationToken);
+        var profileUrl = ToAbsoluteUrl(baseUrl, "/members/my-profile/");
+
+        var greetingName = string.Join(" ", new[]
+        {
+            member.GetValue<string>("firstName"),
+            member.GetValue<string>("lastName")
+        }.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
+
+        if (string.IsNullOrWhiteSpace(greetingName))
+        {
+            greetingName = member.Username;
+        }
+
+        var userBody = WrapEmail(
+            "Subscription activated",
+            $"<p>Hello {Html(greetingName)},</p>" +
+            "<p>Your LTU subscription is active. You can now access all paid content.</p>" +
+            BuildDefinitionList(new Dictionary<string, string?>
+            {
+                ["Plan"] = planName,
+                ["Duration"] = $"{durationMonths} month(s)",
+                ["Price"] = $"${price:0.00}",
+                ["Payment ID"] = paymentIntentId
+            }) +
+            ActionButton(profileUrl, "Open My Profile"));
+
+        await _emailService.SendHtmlAsync(member.Email, $"{SiteName}: subscription activated", userBody);
+
+        if (!string.IsNullOrWhiteSpace(settings.AdminNotificationEmail))
+        {
+            var adminBody = WrapEmail(
+                "New subscription activated",
+                "<p>A member activated a subscription.</p>" +
+                BuildDefinitionList(new Dictionary<string, string?>
+                {
+                    ["Member"] = $"{member.Name} ({member.Username})",
+                    ["Email"] = member.Email,
+                    ["Plan"] = planName,
+                    ["Duration"] = $"{durationMonths} month(s)",
+                    ["Price"] = $"${price:0.00}",
+                    ["Payment ID"] = paymentIntentId
+                }) +
+                ActionButton(profileUrl, "Open Member Cabinet"));
+
+            await _emailService.SendHtmlAsync(settings.AdminNotificationEmail, $"{SiteName}: subscription activated", adminBody);
+        }
+    }
+
     private static string WrapEmail(string title, string contentHtml)
     {
         return $@"

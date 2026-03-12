@@ -7,6 +7,11 @@ public sealed class StripeCheckoutRequest
     public required string CancelUrl { get; init; }
     public required Guid MemberKey { get; init; }
     public required IReadOnlyList<StripeCheckoutLineItem> Items { get; init; }
+    public StripeCheckoutPurchaseType PurchaseType { get; init; } = StripeCheckoutPurchaseType.Content;
+    public string? SubscriptionPlanCode { get; init; }
+    public string? SubscriptionPlanName { get; init; }
+    public int? SubscriptionDurationMonths { get; init; }
+    public decimal? SubscriptionPrice { get; init; }
     public string? CustomerEmail { get; init; }
     public string? CustomerFirstName { get; init; }
     public string? CustomerLastName { get; init; }
@@ -29,9 +34,20 @@ public sealed class StripeCheckoutLineItem
 public sealed class StripeCheckoutCompletedEvent
 {
     public required Guid MemberKey { get; init; }
-    public required IReadOnlyList<Guid> ContentKeys { get; init; }
+    public required StripeCheckoutPurchaseType PurchaseType { get; init; }
+    public IReadOnlyList<Guid> ContentKeys { get; init; } = Array.Empty<Guid>();
+    public string? SubscriptionPlanCode { get; init; }
+    public string? SubscriptionPlanName { get; init; }
+    public int? SubscriptionDurationMonths { get; init; }
+    public decimal? SubscriptionPrice { get; init; }
     public required string PaymentStatus { get; init; }
     public string? PaymentIntentId { get; init; }
+}
+
+public enum StripeCheckoutPurchaseType
+{
+    Content = 0,
+    Subscription = 1
 }
 
 public interface IStripePaymentGateway

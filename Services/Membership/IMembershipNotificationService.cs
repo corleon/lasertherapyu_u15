@@ -6,4 +6,5 @@ public interface IMembershipNotificationService
 {
     Task SendRegistrationCompletedAsync(RegisterMemberViewModel model, string baseUrl, CancellationToken cancellationToken = default);
     Task SendPurchaseCompletedAsync(Guid memberKey, IReadOnlyCollection<Guid> contentKeys, string? paymentIntentId, string baseUrl, CancellationToken cancellationToken = default);
+    Task SendSubscriptionActivatedAsync(Guid memberKey, string planName, int durationMonths, decimal price, string? paymentIntentId, string baseUrl, CancellationToken cancellationToken = default);
 }

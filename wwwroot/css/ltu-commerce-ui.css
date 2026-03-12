@@ -566,6 +566,62 @@ textarea.ltu-auth-input {
     line-height: 1.6;
 }
 
+.ltu-subscription-state {
+    border-left: 4px solid #006738;
+}
+
+.ltu-subscriptions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.ltu-subscription-plan {
+    display: flex;
+    flex-direction: column;
+}
+
+.ltu-subscription-plan__months {
+    margin-bottom: 8px;
+    color: #0065a1;
+    font-size: 0.82em;
+    font-weight: 700;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+}
+
+.ltu-subscription-plan__months span {
+    color: #6e7d89;
+    letter-spacing: .08em;
+}
+
+.ltu-subscription-plan__title {
+    color: #545654;
+    font-family: 'Kameron', serif;
+    font-size: 1.7em;
+    line-height: 1.12;
+}
+
+.ltu-subscription-plan__price {
+    margin-top: 12px;
+    color: #006738;
+    font-family: 'Kameron', serif;
+    font-size: 2.15em;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.ltu-subscription-plan__copy {
+    margin-top: 12px;
+    color: #66727d;
+    line-height: 1.65;
+}
+
+.ltu-subscription-plan .ltu-flow-actions {
+    margin-top: auto;
+    padding-top: 20px;
+}
+
 .ltu-billing-state {
     max-width: 820px;
 }
@@ -636,6 +692,10 @@ textarea.ltu-auth-input {
     .ltu-flow-shell--split,
     .ltu-auth-shell--split,
     .ltu-billing-shell--split {
+        grid-template-columns: 1fr;
+    }
+
+    .ltu-subscriptions-grid {
         grid-template-columns: 1fr;
     }
 

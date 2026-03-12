@@ -1,0 +1,85 @@
+﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@using LTU_U15.Models.Commerce
+@using Umbraco.Extensions
+@inject Umbraco.Cms.Core.Security.IMemberManager MemberManager
+@inject LTU_U15.Services.Site.ISiteSettingsService SiteSettingsService
+@inject LTU_U15.Services.Commerce.IContentPurchaseService PurchaseService
+
+@{
+    Layout = "master.cshtml";
+
+    var pageTitle = Model.Value<string>("title");
+    if (string.IsNullOrWhiteSpace(pageTitle))
+    {
+        pageTitle = Model.Name;
+    }
+
+    var safeReturn = "/members/my-profile/";
+    var returnRaw = Context?.Request?.Query["r"].ToString();
+    if (!string.IsNullOrWhiteSpace(returnRaw) && Url.IsLocalUrl(returnRaw))
+    {
+        safeReturn = returnRaw;
+    }
+
+    var settings = await SiteSettingsService.GetAsync();
+    var encodedReturn = Uri.EscapeDataString(safeReturn);
+    var status = (Context?.Request?.Query["status"].ToString() ?? string.Empty).Trim().ToLowerInvariant();
+    var currentMember = await MemberManager.GetCurrentMemberAsync();
+    var isMemberLoggedIn = currentMember != null;
+
+    var statusMessage = status switch
+    {
+        "success" => "Subscription payment received. Your access is being activated.",
+        "canceled" => "Subscription checkout was canceled. No charge was made.",
+        _ => TempData["MembershipMessage"]?.ToString()
+    };
+
+    var model = new SubscriptionsPageViewModel
+    {
+        Plans = new[]
+        {
+            new SubscriptionPlanViewModel
+            {
+                PlanCode = "med-3m",
+                PlanName = "Three Month Subscription",
+                DurationMonths = 3,
+                Price = settings.Stripe.ThreeMonthSubscriptionPrice,
+                Description = "Short commitment with full access to all paid webinars, protocols, research, and videos.",
+                CtaLabel = "Start 3-Month Plan"
+            },
+            new SubscriptionPlanViewModel
+            {
+                PlanCode = "med-12m",
+                PlanName = "Twelve Month Subscription",
+                DurationMonths = 12,
+                Price = settings.Stripe.TwelveMonthSubscriptionPrice,
+                Description = "Best value annual access for teams and clinicians who use LTU resources every week.",
+                CtaLabel = "Start 12-Month Plan"
+            }
+        },
+        IsMemberLoggedIn = isMemberLoggedIn,
+        ReturnUrl = safeReturn,
+        LoginUrl = $"/members/log-in/?r={Uri.EscapeDataString($"/subscriptions?r={encodedReturn}")}",
+        RegisterUrl = $"/members/registration/?r={Uri.EscapeDataString($"/subscriptions?r={encodedReturn}")}",
+        Message = statusMessage,
+        SubscriptionStatus = isMemberLoggedIn ? await PurchaseService.GetCurrentMemberSubscriptionStatusAsync() : null
+    };
+}
+
+<div class="content-wrapper content-has-breadcrumb">
+    <nav class="breadcrumb-nav">
+        @foreach (var ancestor in Model.Ancestors().OrderBy(x => x.Level))
+        {
+            <a title="@ancestor.Name" href="@ancestor.Url()">@ancestor.Name</a>
+        }
+        <span>@Model.Name</span>
+    </nav>
+
+    <header class="content-header">
+        <h1 class="content-header-h1">@pageTitle</h1>
+    </header>
+
+    <article class="content-article">
+        @await Html.PartialAsync("~/Views/Partials/membership/subscriptions.cshtml", model)
+    </article>
+</div>

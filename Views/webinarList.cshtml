@@ -8,6 +8,7 @@
 @{
     Layout = "master.cshtml";
     var purchasedKeys = await PurchaseService.GetCurrentMemberPurchasedKeysAsync();
+    var hasActiveSubscription = await PurchaseService.CurrentMemberHasActiveSubscriptionAsync();
 
     // Pick up children of this "Webinar List" page that are either 'veterinaryWebinar' or 'webinar'
     var allWebinars = Model!.Children()
@@ -70,7 +71,7 @@
 
                 var tagNodes = w.Value<IEnumerable<IPublishedContent>>("tags");
                 var isPaid = PurchaseService.IsPaidContent(w);
-                var isPurchased = isPaid && purchasedKeys.Contains(w.Key);
+                var isPurchased = isPaid && (hasActiveSubscription || purchasedKeys.Contains(w.Key));
                 var price = PurchaseService.GetPrice(w);
                 var primaryActionClass = isPurchased
                     ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide"
@@ -177,6 +178,9 @@
                                     <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
                                     <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Add to Cart</button>
                                 </form>
+                            </li>
+                            <li class="listing-item-btn">
+                                <a class="ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide" href="/subscriptions?r=@Uri.EscapeDataString(w.Url() ?? "/webinars")">Subscribe</a>
                             </li>
                         }
                     </ul>

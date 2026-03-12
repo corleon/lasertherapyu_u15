@@ -1,0 +1,66 @@
+@model LTU_U15.Models.Commerce.SubscriptionsPageViewModel
+
+<div class="ltu-flow-stack">
+    @if (!string.IsNullOrWhiteSpace(Model.Message))
+    {
+        <div class="ltu-auth-alert">@Model.Message</div>
+    }
+
+    @if (Model.SubscriptionStatus?.IsActive == true)
+    {
+        <section class="ltu-flow-card ltu-subscription-state">
+            <p class="ltu-flow-kicker">Subscription Active</p>
+            <h2 class="ltu-flow-title">You already have full paid-content access</h2>
+            <p class="ltu-flow-copy">
+                Plan: <strong>@(Model.SubscriptionStatus.PlanName ?? "LTU Subscription")</strong>
+                @if (Model.SubscriptionStatus.ExpiresAtUtc.HasValue)
+                {
+                    <text> | valid until @Model.SubscriptionStatus.ExpiresAtUtc.Value.ToLocalTime().ToString("M/d/yyyy")</text>
+                }
+            </p>
+            <div class="ltu-flow-actions">
+                <a class="ltu-flow-btn ltu-flow-btn--primary" href="/members/my-profile/">Open My Profile</a>
+            </div>
+        </section>
+    }
+
+    @if (Model.SubscriptionStatus?.IsActive != true)
+    {
+        <section class="ltu-flow-card">
+            <p class="ltu-flow-kicker">Medical Professional Access</p>
+            <h2 class="ltu-flow-title">Unlock all paid LTU content</h2>
+            <p class="ltu-flow-copy">
+                With an active subscription, any paid webinar, protocol, research paper, and video opens instantly for your member account.
+            </p>
+        </section>
+
+        <section class="ltu-subscriptions-grid">
+            @foreach (var plan in Model.Plans)
+            {
+                <article class="ltu-flow-card ltu-subscription-plan">
+                    <p class="ltu-subscription-plan__months">@plan.DurationMonths <span>months</span></p>
+                    <h3 class="ltu-subscription-plan__title">@plan.PlanName</h3>
+                    <p class="ltu-subscription-plan__price">$@plan.Price.ToString("0.00")</p>
+                    <p class="ltu-subscription-plan__copy">@plan.Description</p>
+
+                    <div class="ltu-flow-actions">
+                        @if (Model.IsMemberLoggedIn)
+                        {
+                            <form method="post" action="/subscriptions/create-session">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="planCode" value="@plan.PlanCode" />
+                                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                                <button type="submit" class="ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide">@plan.CtaLabel</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <a class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide" href="@Model.LoginUrl">Log In to Subscribe</a>
+                            <a class="ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide" href="@Model.RegisterUrl">Register</a>
+                        }
+                    </div>
+                </article>
+            }
+        </section>
+    }
+</div>

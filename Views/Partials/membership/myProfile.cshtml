@@ -3,6 +3,7 @@
 @{
     var purchasedItems = await PurchaseService.GetCurrentMemberPurchasedContentAsync();
     var recentlyViewedItems = await PurchaseService.GetCurrentMemberRecentlyViewedContentAsync();
+    var subscriptionStatus = await PurchaseService.GetCurrentMemberSubscriptionStatusAsync();
     var memberName = User?.Identity?.Name ?? "member";
     const int previewCount = 6;
     var purchasedPreview = purchasedItems.Take(previewCount).ToList();
@@ -29,7 +30,33 @@
                 <span class="ltu-member-hub__stat-label">Recently Viewed</span>
                 <strong class="ltu-member-hub__stat-value">@recentlyViewedItems.Count</strong>
             </div>
+            <div class="ltu-member-hub__stat">
+                <span class="ltu-member-hub__stat-label">Subscription</span>
+                <strong class="ltu-member-hub__stat-value">@((subscriptionStatus?.IsActive ?? false) ? "ACTIVE" : "OFF")</strong>
+            </div>
         </div>
+    </div>
+
+    <div class="ltu-member-hub__subscription-banner">
+        @if (subscriptionStatus?.IsActive == true)
+        {
+            <div class="ltu-member-hub__subscription-copy">
+                <strong>@(subscriptionStatus.PlanName ?? "LTU Subscription")</strong>
+                @if (subscriptionStatus.ExpiresAtUtc.HasValue)
+                {
+                    <span>Valid through @subscriptionStatus.ExpiresAtUtc.Value.ToLocalTime().ToString("M/d/yyyy")</span>
+                }
+            </div>
+            <a class="ltu-action ltu-action--primary" href="/subscriptions">Extend Plan</a>
+        }
+        else
+        {
+            <div class="ltu-member-hub__subscription-copy">
+                <strong>No active subscription</strong>
+                <span>Activate subscription to unlock all paid content without per-item purchases.</span>
+            </div>
+            <a class="ltu-action ltu-action--primary" href="/subscriptions">Subscribe Now</a>
+        }
     </div>
 
     <div class="ltu-member-hub__grid">
@@ -318,6 +345,31 @@
         line-height: 1;
     }
 
+    .ltu-member-hub__subscription-banner {
+        margin: 0 0 24px 0;
+        padding: 18px 22px;
+        border: 1px solid #d8dee3;
+        background: #fff;
+        box-shadow: 0 10px 22px rgba(57, 67, 76, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    .ltu-member-hub__subscription-copy strong {
+        display: block;
+        color: #1f2d38;
+        font-family: 'Kameron', serif;
+        font-size: 1.2em;
+        margin-bottom: 4px;
+    }
+
+    .ltu-member-hub__subscription-copy span {
+        color: #66727d;
+        line-height: 1.55;
+    }
+
     .ltu-member-hub__grid {
         display: grid;
         grid-template-columns: minmax(0, 1.45fr) minmax(280px, .9fr);
@@ -590,6 +642,11 @@
         .ltu-member-hub__hero,
         .ltu-member-hub__grid {
             grid-template-columns: 1fr;
+        }
+
+        .ltu-member-hub__subscription-banner {
+            flex-direction: column;
+            align-items: flex-start;
         }
 
         .ltu-member-hub__panel-header {

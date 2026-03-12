@@ -14,6 +14,9 @@ public interface IContentPurchaseService
     Task<HashSet<Guid>> GetCurrentMemberPurchasedKeysAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<PurchasedContentItem>> GetCurrentMemberPurchasedContentAsync(CancellationToken cancellationToken = default);
     Task<PurchaseRecordResult> AddPurchaseAsync(Guid memberKey, Guid contentKey, string? paymentIntentId, CancellationToken cancellationToken = default);
+    Task<bool> CurrentMemberHasActiveSubscriptionAsync(CancellationToken cancellationToken = default);
+    Task<MemberSubscriptionStatusModel?> GetCurrentMemberSubscriptionStatusAsync(CancellationToken cancellationToken = default);
+    Task<bool> ActivateSubscriptionAsync(Guid memberKey, SubscriptionActivationRequest request, CancellationToken cancellationToken = default);
     Task TrackCurrentMemberRecentlyViewedAsync(Guid contentKey, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<RecentlyViewedContentItem>> GetCurrentMemberRecentlyViewedContentAsync(CancellationToken cancellationToken = default);
 }
@@ -38,4 +41,22 @@ public sealed class MemberCheckoutDetails
     public string? State { get; init; }
     public string? Country { get; init; }
     public string? ZipPostalCode { get; init; }
+}
+
+public sealed class SubscriptionActivationRequest
+{
+    public required string PlanCode { get; init; }
+    public required string PlanName { get; init; }
+    public required int DurationMonths { get; init; }
+    public required decimal Price { get; init; }
+    public string? PaymentIntentId { get; init; }
+}
+
+public sealed class MemberSubscriptionStatusModel
+{
+    public required bool IsActive { get; init; }
+    public string? PlanCode { get; init; }
+    public string? PlanName { get; init; }
+    public DateTime? ExpiresAtUtc { get; init; }
+    public string? LastPaymentIntentId { get; init; }
 }

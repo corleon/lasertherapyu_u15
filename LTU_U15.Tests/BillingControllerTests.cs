@@ -179,6 +179,7 @@ public class BillingControllerTests
             .Returns(new StripeCheckoutCompletedEvent
             {
                 MemberKey = memberKey,
+                PurchaseType = StripeCheckoutPurchaseType.Content,
                 ContentKeys = new[] { contentKey },
                 PaymentStatus = "succeeded",
                 PaymentIntentId = "pi_test_123"
@@ -237,6 +238,7 @@ public class BillingControllerTests
             .Returns(new StripeCheckoutCompletedEvent
             {
                 MemberKey = memberKey,
+                PurchaseType = StripeCheckoutPurchaseType.Content,
                 ContentKeys = new[] { contentKey },
                 PaymentStatus = "succeeded",
                 PaymentIntentId = "pi_test_123"
@@ -254,6 +256,51 @@ public class BillingControllerTests
 
         Assert.IsType<OkResult>(result);
         notifications.Verify(x => x.SendPurchaseCompletedAsync(It.IsAny<Guid>(), It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Webhook_WhenSubscriptionPaid_ActivatesSubscription()
+    {
+        var purchase = new Mock<IContentPurchaseService>();
+        var memberKey = Guid.NewGuid();
+
+        var stripe = new Mock<IStripePaymentGateway>();
+        stripe.Setup(x => x.ParseCheckoutCompletedEvent(It.IsAny<string>()))
+            .Returns(new StripeCheckoutCompletedEvent
+            {
+                MemberKey = memberKey,
+                PurchaseType = StripeCheckoutPurchaseType.Subscription,
+                SubscriptionPlanCode = "med-12m",
+                SubscriptionPlanName = "Twelve Month Subscription",
+                SubscriptionDurationMonths = 12,
+                SubscriptionPrice = 499.00m,
+                PaymentStatus = "succeeded",
+                PaymentIntentId = "pi_sub_123"
+            });
+
+        purchase
+            .Setup(x => x.ActivateSubscriptionAsync(memberKey, It.IsAny<SubscriptionActivationRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var notifications = new Mock<IMembershipNotificationService>();
+        notifications.Setup(x => x.SendSubscriptionActivatedAsync(memberKey, "Twelve Month Subscription", 12, 499.00m, "pi_sub_123", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = CreateController(purchaseService: purchase, stripeGateway: stripe, notificationService: notifications);
+
+        var payload = "{\"type\":\"payment_intent.succeeded\"}";
+        sut.ControllerContext.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(payload));
+
+        var result = await sut.Webhook();
+
+        Assert.IsType<OkResult>(result);
+        purchase.Verify(x => x.ActivateSubscriptionAsync(memberKey, It.Is<SubscriptionActivationRequest>(r =>
+            r.PlanCode == "med-12m" &&
+            r.PlanName == "Twelve Month Subscription" &&
+            r.DurationMonths == 12 &&
+            r.Price == 499.00m &&
+            r.PaymentIntentId == "pi_sub_123"), It.IsAny<CancellationToken>()), Times.Once);
+        notifications.Verify(x => x.SendSubscriptionActivatedAsync(memberKey, "Twelve Month Subscription", 12, 499.00m, "pi_sub_123", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private static BillingController CreateController(

@@ -47,6 +47,8 @@ public sealed class SiteSettingsService : ISiteSettingsService
             stripe.PublishableKey = ReadString(home, "stripePublishableKey", stripe.PublishableKey);
             stripe.SecretKey = ReadString(home, "stripeSecretKey", stripe.SecretKey);
             stripe.Currency = ReadString(home, "stripeCurrency", stripe.Currency);
+            stripe.ThreeMonthSubscriptionPrice = ReadDecimal(home, "subscriptionThreeMonthPrice", stripe.ThreeMonthSubscriptionPrice);
+            stripe.TwelveMonthSubscriptionPrice = ReadDecimal(home, "subscriptionTwelveMonthPrice", stripe.TwelveMonthSubscriptionPrice);
         }
 
         return Task.FromResult(new SiteRuntimeSettings
@@ -105,6 +107,19 @@ public sealed class SiteSettingsService : ISiteSettingsService
         return fallback;
     }
 
+    private static decimal ReadDecimal(Umbraco.Cms.Core.Models.PublishedContent.IPublishedContent content, string alias, decimal fallback)
+    {
+        if (!content.HasProperty(alias))
+        {
+            return fallback;
+        }
+
+        var raw = (content.Value<string>(alias) ?? string.Empty).Trim();
+        return decimal.TryParse(raw, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? value
+            : fallback;
+    }
+
     private static MembershipEmailSettings Clone(MembershipEmailSettings source) => new()
     {
         From = source.From,
@@ -122,6 +137,8 @@ public sealed class SiteSettingsService : ISiteSettingsService
         Currency = source.Currency,
         DefaultWebinarPrice = source.DefaultWebinarPrice,
         DefaultVideoPrice = source.DefaultVideoPrice,
-        DefaultResearchPrice = source.DefaultResearchPrice
+        DefaultResearchPrice = source.DefaultResearchPrice,
+        ThreeMonthSubscriptionPrice = source.ThreeMonthSubscriptionPrice,
+        TwelveMonthSubscriptionPrice = source.TwelveMonthSubscriptionPrice
     };
 }

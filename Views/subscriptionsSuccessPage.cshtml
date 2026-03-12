@@ -1,0 +1,46 @@
+﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@using Umbraco.Extensions
+
+@{
+    Layout = "master.cshtml";
+
+    var pageTitle = Model.Value<string>("title");
+    if (string.IsNullOrWhiteSpace(pageTitle))
+    {
+        pageTitle = Model.Name;
+    }
+
+    var safeReturn = "/members/my-profile/";
+    var returnRaw = Context?.Request?.Query["r"].ToString();
+    if (!string.IsNullOrWhiteSpace(returnRaw) && Url.IsLocalUrl(returnRaw))
+    {
+        safeReturn = returnRaw;
+    }
+}
+
+<div class="content-wrapper content-has-breadcrumb">
+    <nav class="breadcrumb-nav">
+        @foreach (var ancestor in Model.Ancestors().OrderBy(x => x.Level))
+        {
+            <a title="@ancestor.Name" href="@ancestor.Url()">@ancestor.Name</a>
+        }
+        <span>@Model.Name</span>
+    </nav>
+
+    <header class="content-header">
+        <h1 class="content-header-h1">@pageTitle</h1>
+    </header>
+
+    <article class="content-article ltu-flow-stack">
+        <section class="ltu-billing-card ltu-billing-state ltu-billing-state--success">
+            <span class="ltu-billing-state__marker">+</span>
+            <p class="ltu-billing-kicker">Subscription Purchased</p>
+            <h2 class="ltu-billing-title">Your access is being activated</h2>
+            <p class="ltu-billing-copy">Payment is complete. Your member profile is updated as soon as Stripe confirms the payment intent webhook.</p>
+
+            <div class="ltu-flow-actions">
+                <a class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide" href="@safeReturn">Continue</a>
+            </div>
+        </section>
+    </article>
+</div>
