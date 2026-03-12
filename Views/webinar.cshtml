@@ -44,7 +44,7 @@
     }
 }
 
-<div class="content-wrapper content-webinars content-has-breadcrumb" data-variant="768">
+<div class="content-wrapper content-webinars content-has-breadcrumb">
 
     <nav class="breadcrumb-nav">
         @if (crumbs?.Any() == true)
@@ -57,11 +57,29 @@
         }
     </nav>
 
-    <header class="content-header content-header-has-icon">
-        <div class="content-header-icon">
-            <img src="/images/icon_webinars.png?h=109&amp;la=en&amp;w=145" alt="Webinars" width="145" height="109">
-        </div>
-        <h1 class="content-header-h1">@title</h1>
+    <header class="ltu-page-hero">
+        <p class="ltu-page-hero__eyebrow">Webinar</p>
+        <h1 class="ltu-page-hero__title">@title</h1>
+
+        @if (!string.IsNullOrWhiteSpace(length) || !string.IsNullOrWhiteSpace(dateFormatted))
+        {
+            <div class="ltu-page-hero__meta">
+                @if (!string.IsNullOrWhiteSpace(length))
+                {
+                    <div class="ltu-page-hero__meta-item">
+                        <span class="ltu-page-hero__meta-label">Length</span>
+                        <span class="ltu-page-hero__meta-value">@length</span>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(dateFormatted))
+                {
+                    <div class="ltu-page-hero__meta-item">
+                        <span class="ltu-page-hero__meta-label">Original Date</span>
+                        <span class="ltu-page-hero__meta-value">@dateFormatted</span>
+                    </div>
+                }
+            </div>
+        }
     </header>
 
     <section class="content-body">
@@ -72,25 +90,9 @@
             </div>
         }
 
-        @if (!string.IsNullOrWhiteSpace(length) || !string.IsNullOrWhiteSpace(dateFormatted))
-        {
-            <dl class="listing-item-date">
-                @if (!string.IsNullOrWhiteSpace(length))
-                {
-                    <dt>Length:</dt>
-                    <dd>@length</dd>
-                }
-                @if (!string.IsNullOrWhiteSpace(dateFormatted))
-                {
-                    <dt>Original Webinar Date:</dt>
-                    <dd>@dateFormatted</dd>
-                }
-            </dl>
-        }
-
         @if (!string.IsNullOrWhiteSpace(descriptionHtml))
         {
-            <article class="content-article">
+            <article class="ltu-article-body">
                 @Html.Raw(descriptionHtml)
             </article>
         }
@@ -98,22 +100,27 @@
 
     @if (related.Any())
     {
-        <section class="related-products">
-            <h2 class="related-products-h2">More Webinars</h2>
-
-            <div class="related-products-grid">
+        <section class="ltu-related">
+            <div class="ltu-related__header">
+                <p class="ltu-related__kicker">Continue Learning</p>
+                <h2 class="ltu-related__title">More Webinars</h2>
+            </div>
+            <div class="ltu-related__grid">
                 @foreach (var w in related)
                 {
                     var wTitle = w.Value<string>("title");
                     if (string.IsNullOrWhiteSpace(wTitle)) wTitle = w.Name;
-                    <div class="related-products-item">
-                        <h3 class="related-products-h3">@wTitle</h3>
-                        <div class="related-products-description">@Summary(w)</div>
-                        <a class="btn btn-green btn-218" href="@w.Url()">View Webinar</a>
+                    <div class="ltu-related__card">
+                        <p class="ltu-related__card-section">Webinar</p>
+                        <h3 class="ltu-related__card-title"><a href="@w.Url()">@wTitle</a></h3>
+                        <p class="ltu-related__card-body">@Summary(w)</p>
+                        <div>
+                            <a class="ltu-flow-btn ltu-flow-btn--accent" href="@w.Url()">View Webinar</a>
+                        </div>
                     </div>
                 }
             </div>
         </section>
     }
-</div>
 
+</div>

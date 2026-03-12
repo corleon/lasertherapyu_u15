@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"d:\\\\Work\\\\Umbraco\\\\Multiradiance\\\\Lasertherapyu\\\\lasertherapyu_u15\" && powershell -Command \"\\(Get-Content 'Views\\\\home.cshtml'\\) -replace '\\\\{\\\\{-- \\(.+?\\) --\\\\}\\\\}', '@* $1 *@' | Set-Content 'Views\\\\home.cshtml'\")",
+      "Bash(cd \"d:\\\\Work\\\\Umbraco\\\\Multiradiance\\\\Lasertherapyu\\\\lasertherapyu_u15\" && dotnet build --no-restore 2>&1 | tail -30)",
+      "Bash(cd \"d:\\\\Work\\\\Umbraco\\\\Multiradiance\\\\Lasertherapyu\\\\lasertherapyu_u15\" && dotnet test 2>&1 | tail -20)"
+    ]
+  }
+}

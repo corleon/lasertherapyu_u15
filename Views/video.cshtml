@@ -41,7 +41,7 @@
     }
 }
 
-<div class="content-wrapper content-videos content-has-breadcrumb" data-variant="768">
+<div class="content-wrapper content-videos content-has-breadcrumb">
 
     <nav class="breadcrumb-nav">
         @if (crumbs?.Any() == true)
@@ -54,11 +54,29 @@
         }
     </nav>
 
-    <header class="content-header content-header-has-icon">
-        <div class="content-header-icon">
-            <img src="/images/icon_videos.png?h=111&amp;la=en&amp;w=121" alt="Videos" width="121" height="111">
-        </div>
-        <h1 class="content-header-h1">@title</h1>
+    <header class="ltu-page-hero" style="background: radial-gradient(circle at top right, rgba(123,94,167,0.24), transparent 34%), linear-gradient(135deg, #3a3050 0%, #4a3d62 55%, #1f2d38 100%);">
+        <p class="ltu-page-hero__eyebrow">Video</p>
+        <h1 class="ltu-page-hero__title">@title</h1>
+
+        @if (!string.IsNullOrWhiteSpace(length) || !string.IsNullOrWhiteSpace(dateFormatted))
+        {
+            <div class="ltu-page-hero__meta">
+                @if (!string.IsNullOrWhiteSpace(length))
+                {
+                    <div class="ltu-page-hero__meta-item">
+                        <span class="ltu-page-hero__meta-label">Length</span>
+                        <span class="ltu-page-hero__meta-value">@length</span>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(dateFormatted))
+                {
+                    <div class="ltu-page-hero__meta-item">
+                        <span class="ltu-page-hero__meta-label">Date</span>
+                        <span class="ltu-page-hero__meta-value">@dateFormatted</span>
+                    </div>
+                }
+            </div>
+        }
     </header>
 
     <section class="content-body">
@@ -69,25 +87,9 @@
             </div>
         }
 
-        @if (!string.IsNullOrWhiteSpace(length) || !string.IsNullOrWhiteSpace(dateFormatted))
-        {
-            <dl class="listing-item-date">
-                @if (!string.IsNullOrWhiteSpace(length))
-                {
-                    <dt>Length:</dt>
-                    <dd>@length</dd>
-                }
-                @if (!string.IsNullOrWhiteSpace(dateFormatted))
-                {
-                    <dt>Date:</dt>
-                    <dd>@dateFormatted</dd>
-                }
-            </dl>
-        }
-
         @if (!string.IsNullOrWhiteSpace(descriptionHtml))
         {
-            <article class="content-article">
+            <article class="ltu-article-body">
                 @Html.Raw(descriptionHtml)
             </article>
         }
@@ -95,22 +97,27 @@
 
     @if (related.Any())
     {
-        <section class="related-products">
-            <h2 class="related-products-h2">More Videos</h2>
-
-            <div class="related-products-grid">
+        <section class="ltu-related">
+            <div class="ltu-related__header">
+                <p class="ltu-related__kicker">More Content</p>
+                <h2 class="ltu-related__title">More Videos</h2>
+            </div>
+            <div class="ltu-related__grid" style="--card-accent: #7b5ea7;">
                 @foreach (var v in related)
                 {
                     var vTitle = v.Value<string>("title");
                     if (string.IsNullOrWhiteSpace(vTitle)) vTitle = v.Name;
-                    <div class="related-products-item">
-                        <h3 class="related-products-h3">@vTitle</h3>
-                        <div class="related-products-description">@Summary(v)</div>
-                        <a class="btn btn-green btn-218" href="@v.Url()">View Video</a>
+                    <div class="ltu-related__card" style="border-left-color: #7b5ea7;">
+                        <p class="ltu-related__card-section" style="color:#7b5ea7;">Video</p>
+                        <h3 class="ltu-related__card-title"><a href="@v.Url()">@vTitle</a></h3>
+                        <p class="ltu-related__card-body">@Summary(v)</p>
+                        <div>
+                            <a class="ltu-flow-btn ltu-flow-btn--ghost" href="@v.Url()" style="border-color:#c3b3de;color:#5c4490;">View Video</a>
+                        </div>
                     </div>
                 }
             </div>
         </section>
     }
-</div>
 
+</div>

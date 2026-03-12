@@ -1,0 +1,811 @@
+/* ============================================================
+   LTU SITE CSS  —  ltu-site.css
+   Modern design layer for site content pages.
+   Loads AFTER global.css and ltu-commerce-ui.css.
+   Uses the same brand tokens as ltu-commerce-ui.css.
+   ============================================================ */
+
+/* ── BRAND TOKENS ───────────────────────────────────────────
+   Blue    : #0065a1 / #1692c8 (btn gradient top)
+   Green   : #006738 / #2ab85e (btn gradient top)
+   Red     : #c11e2d           (eyebrows, alerts)
+   Dark    : #545654 / #3e403e (headings, hero bg)
+   Purple  : #7b5ea7           (videos section)
+   ──────────────────────────────────────────────────────────── */
+
+
+/* ── BREADCRUMB OVERRIDE ─────────────────────────────────── */
+.breadcrumb-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 0;
+    margin: 0 0 22px;
+    padding: 9px 0;
+    border-bottom: 1px solid #e4e9ed;
+    font-size: 0.84em;
+    font-weight: 600;
+    letter-spacing: .03em;
+    list-style: none;
+    box-sizing: border-box;
+}
+
+.breadcrumb-nav a,
+.breadcrumb-nav a:visited {
+    color: #0065a1;
+    text-decoration: none;
+}
+
+.breadcrumb-nav a:hover { text-decoration: underline; }
+
+.breadcrumb-nav a::after {
+    content: " /";
+    margin: 0 6px;
+    color: #b0bcc5;
+    font-weight: 400;
+}
+
+.breadcrumb-nav span {
+    color: #6a7680;
+    font-weight: 400;
+}
+
+
+/* ── PAGE HERO ──────────────────────────────────────────────
+   Used by: webinar, video, protocol, research detail pages.
+   ─────────────────────────────────────────────────────────── */
+.ltu-page-hero {
+    margin: 0 0 28px;
+    padding: 30px 28px;
+    border: 1px solid #c7ccd1;
+    background:
+        radial-gradient(circle at top right, rgba(43, 124, 191, 0.22), transparent 34%),
+        linear-gradient(135deg, #545654 0%, #3f413f 58%, #006738 100%);
+    box-shadow: 0 18px 36px rgba(52, 53, 52, 0.16);
+    box-sizing: border-box;
+}
+
+.ltu-page-hero,
+.ltu-page-hero * { box-sizing: border-box; }
+
+.ltu-page-hero__eyebrow {
+    margin: 0 0 10px;
+    color: rgba(255,255,255,.72);
+    font-size: 0.76em;
+    font-weight: 700;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+}
+
+.ltu-page-hero__title {
+    margin: 0 0 16px;
+    color: #fff;
+    font-family: 'Kameron', serif;
+    font-size: 2.15em;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.ltu-page-hero__description {
+    max-width: 680px;
+    margin: 0;
+    color: rgba(255,255,255,.84);
+    font-size: 0.98em;
+    line-height: 1.65;
+}
+
+.ltu-page-hero__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255,255,255,.14);
+}
+
+.ltu-page-hero__meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ltu-page-hero__meta-label {
+    color: rgba(255,255,255,.55);
+    font-size: 0.74em;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.ltu-page-hero__meta-value {
+    color: rgba(255,255,255,.90);
+    font-size: 0.94em;
+    font-weight: 600;
+}
+
+
+/* ── VIDEO PLAYER ──────────────────────────────────────────── */
+.content-video-player {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+    margin: 0 0 24px;
+    overflow: hidden;
+    background: #111;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+    box-sizing: border-box;
+}
+
+.content-video-player iframe,
+.content-video-player video,
+.content-video-player object,
+.content-video-player embed {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+
+/* ── META GRID ─────────────────────────────────────────────── */
+.ltu-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin: 0 0 24px;
+    box-sizing: border-box;
+}
+
+.ltu-meta-grid__item {
+    padding: 14px 16px;
+    border: 1px solid #e0e7ec;
+    background: #f7fafb;
+    box-sizing: border-box;
+}
+
+.ltu-meta-grid__label {
+    display: block;
+    margin-bottom: 6px;
+    color: #7a8790;
+    font-size: 0.74em;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.ltu-meta-grid__value {
+    display: block;
+    color: #24333f;
+    font-size: 0.96em;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+
+/* ── ARTICLE BODY ──────────────────────────────────────────── */
+.ltu-article-body {
+    color: #3a4550;
+    font-size: 1em;
+    line-height: 1.74;
+    margin: 0 0 28px;
+}
+
+.ltu-article-body p  { margin: 0 0 1.1em; }
+.ltu-article-body h2 { margin: 1.5em 0 0.6em; font-family: 'Kameron', serif; font-size: 1.65em; color: #1f2d38; font-weight: 700; }
+.ltu-article-body h3 { margin: 1.3em 0 0.5em; font-family: 'Kameron', serif; font-size: 1.3em; color: #30414d; font-weight: 700; }
+.ltu-article-body a  { color: #0065a1; text-decoration: underline; }
+.ltu-article-body a:hover { text-decoration: none; }
+.ltu-article-body ul,
+.ltu-article-body ol { margin: 0 0 1.1em; padding-left: 1.6em; }
+.ltu-article-body li { margin-bottom: 0.4em; }
+.ltu-article-body img { max-width: 100%; height: auto; }
+
+
+/* ── PROTOCOL: PRICE BADGE ─────────────────────────────────── */
+.ltu-protocol-price {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 22px;
+    padding: 14px 20px;
+    border: 1px solid #dce3e8;
+    background: linear-gradient(180deg, #f8fafb 0%, #eef3f6 100%);
+    box-shadow: 0 6px 16px rgba(57, 67, 76, 0.06);
+    box-sizing: border-box;
+}
+
+.ltu-protocol-price__label {
+    color: #6a7680;
+    font-size: 0.8em;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.ltu-protocol-price__value {
+    color: #006738;
+    font-family: 'Kameron', serif;
+    font-size: 1.7em;
+    font-weight: 700;
+    line-height: 1;
+}
+
+
+/* ── PROTOCOL: DIAGRAMS ─────────────────────────────────────── */
+.ltu-protocol-diagrams {
+    margin: 30px 0 0;
+    padding: 24px 0 0;
+    border-top: 1px solid #e4e9ed;
+    box-sizing: border-box;
+}
+
+.ltu-protocol-diagrams__title {
+    margin: 0 0 18px;
+    color: #30414d;
+    font-family: 'Kameron', serif;
+    font-size: 1.4em;
+    font-weight: 700;
+}
+
+.ltu-protocol-diagrams__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.ltu-protocol-diagrams__grid img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid #dce3e8;
+    border-radius: 2px;
+}
+
+
+/* ── RELATED CONTENT ────────────────────────────────────────── */
+.ltu-related {
+    margin: 32px 0 0;
+    padding: 26px 0 0;
+    border-top: 1px solid #e4e9ed;
+    box-sizing: border-box;
+}
+
+.ltu-related__header {
+    margin: 0 0 20px;
+}
+
+.ltu-related__kicker {
+    margin: 0 0 4px;
+    color: #c11e2d;
+    font-size: 0.76em;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+}
+
+.ltu-related__title {
+    margin: 0;
+    color: #545654;
+    font-family: 'Kameron', serif;
+    font-size: 1.5em;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.ltu-related__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.ltu-related__card {
+    display: flex;
+    flex-direction: column;
+    padding: 18px 20px;
+    border: 1px solid #dce3e8;
+    border-left: 5px solid #006738;
+    background: linear-gradient(180deg, #fff 0%, #fbfcfc 100%);
+    box-shadow: 0 10px 24px rgba(57, 67, 76, 0.07);
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+.ltu-related__card-section {
+    margin: 0 0 6px;
+    color: #0065a1;
+    font-size: 0.74em;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.ltu-related__card-title {
+    margin: 0 0 10px;
+    color: #1f2d38;
+    font-family: 'Kameron', serif;
+    font-size: 1.12em;
+    line-height: 1.3;
+    font-weight: 700;
+    flex: 1;
+}
+
+.ltu-related__card-body {
+    margin: 0 0 16px;
+    color: #66717b;
+    font-size: 0.88em;
+    line-height: 1.6;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+
+/* ── STUDY (RESEARCH PAGE) ──────────────────────────────────── */
+.ltu-study-card {
+    padding: 22px 24px;
+    border: 1px solid #dce3e8;
+    border-left: 5px solid #0065a1;
+    background: linear-gradient(180deg, #fff 0%, #f8fafb 100%);
+    box-shadow: 0 12px 28px rgba(57, 67, 76, 0.08);
+    margin: 0 0 24px;
+    box-sizing: border-box;
+}
+
+.ltu-study-card,
+.ltu-study-card * { box-sizing: border-box; }
+
+.ltu-study-title {
+    margin: 0 0 12px;
+    color: #1f2d38;
+    font-family: 'Kameron', serif;
+    font-size: 1.9em;
+    font-weight: 700;
+    line-height: 1.12;
+}
+
+.ltu-study-journal {
+    margin: 0 0 6px;
+    color: #0065a1;
+    font-size: 0.95em;
+    font-weight: 600;
+    font-style: italic;
+    line-height: 1.45;
+}
+
+.ltu-study-contributors {
+    margin: 0 0 10px;
+    color: #545654;
+    font-size: 0.92em;
+    line-height: 1.55;
+}
+
+.ltu-study-meta {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #e4e9ed;
+    color: #6a7680;
+    font-size: 0.86em;
+    line-height: 1.55;
+}
+
+
+/* ── HOME: BANNER SLIDER ─────────────────────────────────────── */
+.main_slider_wrapper {
+    margin: 0 0 28px;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.main_slider_wrapper img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.main_slider_wrapper .slick-dots { bottom: 10px; }
+
+.main_slider_wrapper .slick-dots li button:before {
+    color: #fff;
+    opacity: 0.7;
+    font-size: 10px;
+}
+
+.main_slider_wrapper .slick-dots li.slick-active button:before {
+    opacity: 1;
+}
+
+
+/* ── HOME: DASHBOARD GRID ────────────────────────────────────── */
+.ltu-home-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(280px, .75fr);
+    gap: 24px;
+    align-items: start;
+    box-sizing: border-box;
+}
+
+.ltu-sections-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+
+/* ── HOME: SECTION CARD ──────────────────────────────────────── */
+.ltu-section-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #dce3e8;
+    background: linear-gradient(180deg, #fff 0%, #fbfcfc 100%);
+    box-shadow: 0 10px 24px rgba(57, 67, 76, 0.07);
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+/* Section colour accents */
+.ltu-section-card--webinars  { border-top: 4px solid #1692c8; }
+.ltu-section-card--research  { border-top: 4px solid #006738; }
+.ltu-section-card--protocols { border-top: 4px solid #c11e2d; }
+.ltu-section-card--videos    { border-top: 4px solid #7b5ea7; }
+
+.ltu-section-card__head {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid #e8edf0;
+}
+
+.ltu-section-card__eyebrow {
+    margin: 0 0 4px;
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+}
+
+.ltu-section-card--webinars  .ltu-section-card__eyebrow { color: #1692c8; }
+.ltu-section-card--research  .ltu-section-card__eyebrow { color: #006738; }
+.ltu-section-card--protocols .ltu-section-card__eyebrow { color: #c11e2d; }
+.ltu-section-card--videos    .ltu-section-card__eyebrow { color: #7b5ea7; }
+
+.ltu-section-card__title {
+    margin: 0;
+    color: #1f2d38;
+    font-family: 'Kameron', serif;
+    font-size: 1.28em;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+.ltu-section-card__body {
+    flex: 1;
+    padding: 14px 18px;
+}
+
+.ltu-section-card__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0;
+}
+
+.ltu-section-card__item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f4f6;
+}
+
+.ltu-section-card__item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.ltu-section-card__item-label {
+    color: #30414d;
+    font-size: 0.87em;
+    line-height: 1.45;
+    flex: 1;
+    min-width: 0;
+}
+
+.ltu-section-card__item-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.ltu-section-card__featured {
+    padding: 3px 8px;
+    background: rgba(22, 146, 200, 0.12);
+    color: #0c5c97;
+    font-size: 0.68em;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.ltu-section-card__price {
+    color: #006738;
+    font-size: 0.82em;
+    font-weight: 700;
+}
+
+.ltu-section-card__price--paid {
+    color: #30414d;
+}
+
+.ltu-section-card__foot {
+    padding: 12px 18px 16px;
+    border-top: 1px solid #e8edf0;
+}
+
+.ltu-section-card__foot .ltu-flow-btn {
+    width: 100%;
+    max-width: none;
+}
+
+
+/* ── HOME: SIDEBAR PROMOS ────────────────────────────────────── */
+.ltu-home-sidebar {
+    display: grid;
+    gap: 16px;
+}
+
+.ltu-home-promo {
+    border: 1px solid #dce3e8;
+    background: linear-gradient(180deg, #fff 0%, #fbfcfc 100%);
+    box-shadow: 0 10px 24px rgba(57, 67, 76, 0.07);
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.ltu-home-promo__title {
+    display: block;
+    padding: 12px 16px 10px;
+    margin: 0;
+    color: #545654;
+    font-family: 'Kameron', serif;
+    font-size: 1.08em;
+    font-weight: 700;
+    border-bottom: 1px solid #e8edf0;
+}
+
+.ltu-home-promo__img-wrap {
+    display: block;
+    line-height: 0;
+}
+
+.ltu-home-promo__img-wrap img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+
+/* ── SEARCH PAGE ────────────────────────────────────────────── */
+.ltu-search-wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 0 32px;
+    box-sizing: border-box;
+}
+
+.ltu-search-form {
+    display: flex;
+    gap: 10px;
+    margin: 0 0 28px;
+    box-sizing: border-box;
+}
+
+.ltu-search-input {
+    flex: 1;
+    min-height: 48px;
+    padding: 0 16px;
+    border: 1px solid #d6dde3;
+    background: #f8fafb;
+    color: #24333f;
+    font-family: 'Source Sans Pro', sans-serif;
+    font-size: 1em;
+    transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
+    box-sizing: border-box;
+}
+
+.ltu-search-input:focus {
+    outline: none;
+    border-color: #7cb4d7;
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(43, 124, 191, 0.12);
+}
+
+.ltu-search-count {
+    margin: 0 0 20px;
+    padding: 12px 16px;
+    border: 1px solid #d4e4ef;
+    background: linear-gradient(180deg, #f6fbff 0%, #edf7fd 100%);
+    color: #21506b;
+    font-size: 0.9em;
+    font-weight: 600;
+    box-sizing: border-box;
+}
+
+.ltu-search-results {
+    display: grid;
+    gap: 14px;
+}
+
+.ltu-search-result {
+    padding: 18px 20px;
+    border: 1px solid #dce3e8;
+    border-left: 5px solid #0065a1;
+    background: linear-gradient(180deg, #fff 0%, #fbfcfc 100%);
+    box-shadow: 0 8px 20px rgba(57, 67, 76, 0.06);
+    box-sizing: border-box;
+}
+
+.ltu-search-result__title {
+    margin: 0 0 6px;
+}
+
+.ltu-search-result__title a,
+.ltu-search-result__title a:visited {
+    color: #1f2d38;
+    font-family: 'Kameron', serif;
+    font-size: 1.28em;
+    font-weight: 700;
+    text-decoration: none;
+    line-height: 1.25;
+}
+
+.ltu-search-result__title a:hover {
+    color: #0065a1;
+    text-decoration: none;
+}
+
+.ltu-search-result__subtitle {
+    margin: 0 0 8px;
+    color: #545654;
+    font-size: 0.96em;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.ltu-search-result__meta {
+    color: #7a8790;
+    font-size: 0.82em;
+    font-style: italic;
+}
+
+.ltu-search-divider {
+    margin: 24px 0 0;
+    border: none;
+    border-top: 1px solid #e4e9ed;
+}
+
+
+/* ── FOOTER REFRESH ─────────────────────────────────────────── */
+.site-footer {
+    margin-top: 32px;
+    padding: 20px 0 10px;
+    border-top: 2px solid #3e403e;
+    background: linear-gradient(180deg, #545654 0%, #3e403e 100%);
+    box-sizing: border-box;
+}
+
+.site-footer .site-footer-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 0 0 12px;
+    padding: 0 20px;
+    list-style: none;
+}
+
+.site-footer .site-footer-item {
+    color: rgba(255,255,255,.72);
+    font-size: 0.85em;
+}
+
+.site-footer .site-footer-link,
+.site-footer .site-footer-link:visited {
+    color: rgba(255,255,255,.80);
+    text-decoration: none;
+    transition: color .16s;
+}
+
+.site-footer .site-footer-link:hover { color: #fff; }
+
+.site-footer .wrapper_copyright {
+    margin: 0 0 12px;
+    padding: 0 20px;
+    color: rgba(255,255,255,.50);
+    font-size: 0.78em;
+    line-height: 1.55;
+}
+
+.site-footer .footer-social-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin: 0;
+    padding: 10px 20px 0;
+    list-style: none;
+    border-top: 1px solid rgba(255,255,255,.10);
+}
+
+.site-footer .footer-social-link,
+.site-footer .footer-social-link:visited {
+    color: rgba(255,255,255,.70);
+    font-size: 0.82em;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color .16s;
+}
+
+.site-footer .footer-social-link:hover { color: #2ab85e; }
+
+
+/* ── CONTENT WRAPPER BASELINE ───────────────────────────────── */
+.content-wrapper {
+    box-sizing: border-box;
+}
+
+.content-wrapper.content-has-breadcrumb {
+    padding-top: 0;
+}
+
+
+/* ── RESPONSIVE ──────────────────────────────────────────────── */
+@media screen and (max-width: 960px) {
+    .ltu-home-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ltu-related__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media screen and (max-width: 700px) {
+    .ltu-sections-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ltu-page-hero {
+        padding: 22px 18px;
+    }
+
+    .ltu-page-hero__title {
+        font-size: 1.75em;
+    }
+
+    .ltu-related__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ltu-search-form {
+        flex-direction: column;
+    }
+
+    .ltu-meta-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .ltu-study-title {
+        font-size: 1.55em;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .ltu-meta-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -61,64 +61,63 @@
         }
     </nav>
 
-    <header class="content-header content-header-has-icon">
-        <div class="content-header-icon">
-            <img src="/images/icon_research.png" alt="Research" width="132" height="116" />
-        </div>
-        <h1 class="content-header-h1">Laser Therapy Research</h1>
-        <div class="content-header-copy">
-            @if (!string.IsNullOrWhiteSpace(shortDescription))
-            {
-                @Html.Raw(shortDescription)
-            }
-            else
-            {
-                <p>Laser Therapy U's online research portal houses an extensive collection of published studies, articles and abstracts from around the world.</p>
-            }
-        </div>
+    <header class="ltu-page-hero" style="background: radial-gradient(circle at top right, rgba(0,103,56,0.28), transparent 34%), linear-gradient(135deg, #1a2d23 0%, #1f3728 55%, #0c5c97 100%);">
+        <p class="ltu-page-hero__eyebrow">Research</p>
+        <h1 class="ltu-page-hero__title">Laser Therapy Research</h1>
+        @if (!string.IsNullOrWhiteSpace(shortDescription))
+        {
+            <p class="ltu-page-hero__description">@Html.Raw(shortDescription)</p>
+        }
+        else
+        {
+            <p class="ltu-page-hero__description">Laser Therapy U's online research portal houses an extensive collection of published studies, articles and abstracts from around the world.</p>
+        }
     </header>
 
-    <section class="studySubHead">
-        <h2 class="listing-item-h2">@title</h2>
+    <div class="ltu-study-card">
+        <h2 class="ltu-study-title">@title</h2>
 
         @if (!string.IsNullOrWhiteSpace(journal))
         {
-            <p class="studyContributors">@journal</p>
+            <p class="ltu-study-journal">@journal</p>
         }
 
         @if (!string.IsNullOrWhiteSpace(articleContributors))
         {
-            <p class="studyContributors">@Html.Raw(articleContributors)</p>
+            <p class="ltu-study-contributors">@Html.Raw(articleContributors)</p>
         }
 
-        <div class="studyMeta">
-            @if (articleDate.HasValue)
-            {
-                @articleDate.Value.ToString("M/d/yyyy")
-            }
-            @if (!string.IsNullOrWhiteSpace(articleReference))
-            {
-                if (articleDate.HasValue)
+        @if (articleDate.HasValue || !string.IsNullOrWhiteSpace(articleReference))
+        {
+            <div class="ltu-study-meta">
+                @if (articleDate.HasValue)
                 {
-                    <text> - </text>
+                    @articleDate.Value.ToString("M/d/yyyy")
                 }
-                @Html.Raw(articleReference)
-            }
-        </div>
-    </section>
+                @if (!string.IsNullOrWhiteSpace(articleReference))
+                {
+                    if (articleDate.HasValue)
+                    {
+                        <text> &mdash; </text>
+                    }
+                    @Html.Raw(articleReference)
+                }
+            </div>
+        }
+    </div>
 
-    <article class="theStudy">
-        @Html.Raw(articleCopy)
-    </article>
+    @if (!string.IsNullOrWhiteSpace(articleCopy))
+    {
+        <article class="ltu-article-body">
+            @Html.Raw(articleCopy)
+        </article>
+    }
 
     @if (!string.IsNullOrWhiteSpace(articleUrl))
     {
-        <ul class="listing-item-btns">
-            <li class="listing-item-btn">
-                <a title="Link to Full Article" class="btn btn-green" href="@articleUrl" target="_blank">Link to Full Article</a>
-            </li>
-        </ul>
+        <div style="margin-top: 8px;">
+            <a class="ltu-flow-btn ltu-flow-btn--accent" href="@articleUrl" target="_blank">Link to Full Article</a>
+        </div>
     }
 
 </div>
-

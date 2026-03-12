@@ -56,20 +56,6 @@
     }
 }
 
-<style>
-    .protocol-detail .theProductPrice { display: block; margin: 15px 0; }
-    .protocol-detail .product-info-btns { display: block; margin-top: 15px; }
-    .protocol-diagrams { margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; }
-    .protocol-diagrams-h2 { margin-bottom: 20px; }
-    .protocol-diagrams-wrapper { display: flex; flex-wrap: wrap; gap: 20px; }
-    .protocol-diagram-item { flex: 1 1 300px; max-width: 100%; }
-    .protocol-diagram-item img { width: 100%; height: auto; border: 1px solid #eee; border-radius: 4px; }
-    @@media (max-width: 768px) {
-        .protocol-diagrams-wrapper { flex-direction: column; }
-        .protocol-diagram-item { flex: 1 1 100%; }
-    }
-</style>
-
 <div class="content-wrapper content-protocols content-has-breadcrumb">
 
     <nav class="breadcrumb-nav">
@@ -89,38 +75,40 @@
         }
     </nav>
 
-    <header class="content-header content-header-has-icon">
-        <div class="content-header-icon">
-            <img src="/images/icon_protocols.png?h=118&amp;la=en&amp;w=100" alt="Protocols" width="100" height="118">
-        </div>
-        <h1 class="content-header-h1">@title</h1>
+    <header class="ltu-page-hero" style="background: radial-gradient(circle at top right, rgba(193,30,45,0.20), transparent 34%), linear-gradient(135deg, #3d1a1e 0%, #4a2226 55%, #006738 100%);">
+        <p class="ltu-page-hero__eyebrow">Protocol</p>
+        <h1 class="ltu-page-hero__title">@title</h1>
     </header>
 
-    <article class="content-article protocol-detail">
+    <article class="content-article">
         @if (!string.IsNullOrWhiteSpace(shortDescriptionHtml))
         {
-            @Html.Raw(shortDescriptionHtml)
+            <div class="ltu-article-body">
+                @Html.Raw(shortDescriptionHtml)
+            </div>
         }
 
         @if (!string.IsNullOrWhiteSpace(displayPrice))
         {
-            <div class="theProductPrice">
-                <span class="heading">Price: </span>$@displayPrice
+            <div class="ltu-protocol-price">
+                <span class="ltu-protocol-price__label">Price</span>
+                <span class="ltu-protocol-price__value">$@displayPrice</span>
             </div>
         }
 
-        <div class="product-info-btns">
-            @if (!string.IsNullOrWhiteSpace(protocolFileUrl))
-            {
-                <a title="Download Protocol" class="btn btn-green" href="@protocolFileUrl" target="_blank">Download Protocol</a>
-            }
-        </div>
+        @if (!string.IsNullOrWhiteSpace(protocolFileUrl))
+        {
+            <div>
+                <a class="ltu-flow-btn ltu-flow-btn--accent" href="@protocolFileUrl" target="_blank">Download Protocol</a>
+            </div>
+        }
     </article>
 
     @if (showDiagrams && diagramImage != null)
     {
-        <section>
-            <div>
+        <section class="ltu-protocol-diagrams">
+            <h2 class="ltu-protocol-diagrams__title">Diagrams</h2>
+            <div class="ltu-protocol-diagrams__grid">
                 @{
                     var imgUrl = diagramImage.Url();
                     var altText = diagramImage.Value<string>("altText") ?? diagramImage.Name;
@@ -132,21 +120,27 @@
 
     @if (related.Any())
     {
-        <section class="related-products-listing" id="related-products">
-            <h2 class="related-products-h2">Related Protocols</h2>
-            <div class="related-products-wrapper">
+        <section class="ltu-related">
+            <div class="ltu-related__header">
+                <p class="ltu-related__kicker">Clinical Resources</p>
+                <h2 class="ltu-related__title">Related Protocols</h2>
+            </div>
+            <div class="ltu-related__grid">
                 @foreach (var p in related)
                 {
                     var pTitle = p.Value<string>("headline");
                     if (string.IsNullOrWhiteSpace(pTitle)) pTitle = p.Name;
-                    <div class="related-products-item">
-                        <h3 class="related-products-h3">@pTitle</h3>
-                        <div class="related-products-description">@Summary(p)</div>
-                        <a title="View Protocol" class="related-products-link" href="@p.Url()">View Protocol</a>
+                    <div class="ltu-related__card" style="border-left-color: #c11e2d;">
+                        <p class="ltu-related__card-section" style="color:#c11e2d;">Protocol</p>
+                        <h3 class="ltu-related__card-title"><a href="@p.Url()">@pTitle</a></h3>
+                        <p class="ltu-related__card-body">@Summary(p)</p>
+                        <div>
+                            <a class="ltu-flow-btn ltu-flow-btn--ghost" href="@p.Url()">View Protocol</a>
+                        </div>
                     </div>
                 }
             </div>
         </section>
     }
-</div>
 
+</div>

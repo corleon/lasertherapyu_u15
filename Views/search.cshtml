@@ -17,28 +17,31 @@
 
 @await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, title, subtitle, mainImage))
 
-<div class="container">
-    <form action="@Model.Url()" method="GET" id="search">
-        <div class="row">
-            <div class="col-lg-8 col-md-10 mx-auto">
-                <div class="form-group controls">
-                    <input type="text" class="form-control col-xs-6" placeholder="@Umbraco.GetDictionaryValue("Search.Placeholder")" name="q" value="@searchQuery" />
-                </div>
+<div class="content-wrapper">
+    <div class="ltu-search-wrap">
+        <form action="@Model.Url()" method="GET" id="search">
+            <div class="ltu-search-form">
+                <input type="text"
+                       class="ltu-search-input"
+                       placeholder="Search webinars, protocols, research, videos…"
+                       name="q"
+                       value="@searchQuery" />
+                <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary">Search</button>
             </div>
-            <div class="col-lg-8 col-md-10 mx-auto my-3">
-                <div class="form-group">
-                    <button class="btn btn-primary search-button float-end">@Umbraco.GetDictionaryValue("Search.SearchButton") <i class="fa fa-search"></i></button>
-                </div>
-            </div>
-            <div class="col-lg-8 col-md-10 mx-auto">
-                @if (!string.IsNullOrWhiteSpace(searchQuery))
-                {
-                    var results = publishedContentQuery.Search(searchQuery).Where(x => !docTypesToIgnore.Contains(x.Content.ContentType.Alias));
-                    long resultCount = results != null && results.Any() ? results.Count() : 0;
+
+            @if (!string.IsNullOrWhiteSpace(searchQuery))
+            {
+                var results = publishedContentQuery.Search(searchQuery).Where(x => !docTypesToIgnore.Contains(x.Content.ContentType.Alias));
+                long resultCount = results != null && results.Any() ? results.Count() : 0;
+
+                <p class="ltu-search-count">
                     @Html.Raw(string.Format(Umbraco.GetDictionaryValue("Search.Results"), resultCount, searchQuery))
-                    if (resultCount > 0)
-                    {
-                        foreach (var result in results)
+                </p>
+
+                @if (resultCount > 0)
+                {
+                    <div class="ltu-search-results">
+                        @foreach (var result in results)
                         {
                             var resultContent = result.Content;
                             var author = resultContent.HasProperty("author") && resultContent.HasValue("author")
@@ -48,39 +51,37 @@
                                 ? resultContent.Value<DateTime?>("articleDate")
                                 : null;
 
-                            <div class="post-preview">
-                                <a href="@resultContent.Url()">
-                                    <h2 class="post-title">
+                            <div class="ltu-search-result">
+                                <h2 class="ltu-search-result__title">
+                                    <a href="@resultContent.Url()">
                                         @(resultContent.HasProperty("title") && resultContent.HasValue("title") && !string.IsNullOrWhiteSpace(resultContent.Value<string>("title")) ? resultContent.Value("title") : resultContent.Name)
-                                    </h2>
-                                    @if (resultContent.HasProperty("subtitle") && resultContent.HasValue("subtitle") && !string.IsNullOrWhiteSpace(resultContent.Value<string>("subtitle")))
-                                    {
-                                        <h3 class="post-subtitle">@(resultContent.Value<string>("subtitle"))</h3>
-                                    }
-                                </a>
+                                    </a>
+                                </h2>
+                                @if (resultContent.HasProperty("subtitle") && resultContent.HasValue("subtitle") && !string.IsNullOrWhiteSpace(resultContent.Value<string>("subtitle")))
+                                {
+                                    <p class="ltu-search-result__subtitle">@(resultContent.Value<string>("subtitle"))</p>
+                                }
                                 @if (author != null || (articleDate != null && articleDate > DateTime.MinValue))
                                 {
-                                    <p class="post-meta">
+                                    <p class="ltu-search-result__meta">
                                         @Umbraco.GetDictionaryValue("Article.Posted")
                                         @if (author != null)
                                         {
                                             @Umbraco.GetDictionaryValue("Article.By")@Html.Raw("&nbsp;")@author.Name
                                         }
-
                                         @if (articleDate != null && articleDate > DateTime.MinValue)
                                         {
                                             @Umbraco.GetDictionaryValue("Article.On")
-
                                             @:&nbsp;@(articleDate.Value.ToString("MMMM dd, yyyy"))
                                         }
                                     </p>
                                 }
                             </div>
                         }
-                        <hr>
-                    }
+                    </div>
+                    <hr class="ltu-search-divider" />
                 }
-            </div>
-        </div>
-    </form>
+            }
+        </form>
+    </div>
 </div>
