@@ -1,31 +1,26 @@
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
-
 @using System
 @using System.Linq
 @using Umbraco.Cms.Core.Models.PublishedContent
-@using Clean.Core.Models.ViewModels
-
+@using LTU_U15.Services.Commerce
+@inject IContentPurchaseService PurchaseService
 @{
     Layout = "master.cshtml";
 
     var webinarsRoot = Model.Children().FirstOrDefault(x => x.ContentType.Alias == "webinars" && x.IsPublished());
     var preRecordedWebinars = webinarsRoot?
         .Children()
-        .FirstOrDefault(x => x.ContentType.Alias == "webinarList"
-            && x.IsPublished()
-            && x.Name.Contains("Pre-Recorded", StringComparison.OrdinalIgnoreCase))
-        ?? webinarsRoot?
-            .Children()
-            .FirstOrDefault(x => x.ContentType.Alias == "webinarList" && x.IsPublished());
+        .FirstOrDefault(x => x.ContentType.Alias == "webinarList" && x.IsPublished() && x.Name.Contains("Pre-Recorded", StringComparison.OrdinalIgnoreCase))
+        ?? webinarsRoot?.Children().FirstOrDefault(x => x.ContentType.Alias == "webinarList" && x.IsPublished());
 
     var webinarItems = (preRecordedWebinars?.Children() ?? Enumerable.Empty<IPublishedContent>())
-        .Where(x => x.IsPublished()
-            && (x.ContentType.Alias == "veterinaryWebinar" || x.ContentType.Alias == "webinar")
-            && x.Value<bool?>("active") != false)
+        .Where(x => x.IsPublished() && (x.ContentType.Alias == "veterinaryWebinar" || x.ContentType.Alias == "webinar") && x.Value<bool?>("active") != false)
         .OrderByDescending(x => x.Value<DateTime?>("date") ?? DateTime.MinValue)
         .ThenBy(x => x.Name)
         .Take(3)
         .ToList();
+    var webinarCount = (preRecordedWebinars?.Children() ?? Enumerable.Empty<IPublishedContent>())
+        .Count(x => x.IsPublished() && (x.ContentType.Alias == "veterinaryWebinar" || x.ContentType.Alias == "webinar") && x.Value<bool?>("active") != false);
 
     var researchRoot = Model.Children().FirstOrDefault(x => x.ContentType.Alias == "researchList" && x.IsPublished());
     var researchItems = (researchRoot?.Children() ?? Enumerable.Empty<IPublishedContent>())
@@ -34,6 +29,8 @@
         .ThenBy(x => x.Value<string>("articleTitle") ?? x.Value<string>("headline") ?? x.Name)
         .Take(3)
         .ToList();
+    var researchCount = (researchRoot?.Children() ?? Enumerable.Empty<IPublishedContent>())
+        .Count(x => x.IsPublished() && x.ContentType.Alias == "research");
 
     var protocolsRoot = Model.Children().FirstOrDefault(x => x.ContentType.Alias == "protocolsList" && x.IsPublished());
     var protocolItems = (protocolsRoot?.Children() ?? Enumerable.Empty<IPublishedContent>())
@@ -42,6 +39,8 @@
         .ThenBy(x => x.Value<string>("headline") ?? x.Name)
         .Take(3)
         .ToList();
+    var protocolCount = (protocolsRoot?.Children() ?? Enumerable.Empty<IPublishedContent>())
+        .Count(x => x.IsPublished() && x.ContentType.Alias == "protocol");
 
     var videosRoot = Model.Children().FirstOrDefault(x => x.ContentType.Alias == "videoList" && x.IsPublished());
     var videoItems = (videosRoot?.Children() ?? Enumerable.Empty<IPublishedContent>())
@@ -50,300 +49,150 @@
         .ThenBy(x => x.Name)
         .Take(3)
         .ToList();
+    var videoCount = (videosRoot?.Children() ?? Enumerable.Empty<IPublishedContent>())
+        .Count(x => x.IsPublished() && x.ContentType.Alias == "video");
 
-    string GetWebinarTitle(IPublishedContent item) =>
-        (item.Value<string>("title") ?? item.Name).Trim();
+    var featuredItem = webinarItems.FirstOrDefault() ?? protocolItems.FirstOrDefault() ?? researchItems.FirstOrDefault() ?? videoItems.FirstOrDefault();
 
-    string GetResearchTitle(IPublishedContent item)
+    string ResourceTitle(IPublishedContent item)
     {
-        var articleTitle = item.Value<string>("articleTitle")?.Trim();
-        var headline = item.Value<string>("headline")?.Trim();
-        return !string.IsNullOrWhiteSpace(articleTitle) ? articleTitle : (!string.IsNullOrWhiteSpace(headline) ? headline : item.Name);
-    }
-
-    string GetProtocolTitle(IPublishedContent item)
-    {
-        var headline = item.Value<string>("headline")?.Trim();
-        return string.IsNullOrWhiteSpace(headline) ? item.Name : headline;
-    }
-
-    string GetVideoTitle(IPublishedContent item) =>
-        (item.Value<string>("title") ?? item.Name).Trim();
-
-    string GetProtocolPriceLabel(IPublishedContent item)
-    {
-        var salePrice = (item.Value<string>("salePrice") ?? "").Trim();
-        if (!string.IsNullOrWhiteSpace(salePrice) && salePrice != "0" && salePrice != "0.00")
+        if (item.ContentType.Alias == "research")
         {
-            return salePrice.StartsWith("$", StringComparison.Ordinal) ? salePrice : $"${salePrice}";
+            return item.Value<string>("articleTitle")?.Trim() ?? item.Value<string>("headline")?.Trim() ?? item.Name;
         }
 
-        var price = (item.Value<string>("price") ?? "").Trim();
-        if (!string.IsNullOrWhiteSpace(price) && price != "0" && price != "0.00")
-        {
-            return price.StartsWith("$", StringComparison.Ordinal) ? price : $"${price}";
-        }
+        return item.Value<string>("title")?.Trim() ?? item.Value<string>("headline")?.Trim() ?? item.Name;
+    }
 
-        return "FREE";
+    string ResourceMeta(IPublishedContent item)
+    {
+        var date = item.Value<DateTime?>("date") ?? item.Value<DateTime?>("articleDate");
+        return date.HasValue ? date.Value.ToString("MMM d, yyyy") : "Available now";
+    }
+
+    string PriceLabel(IPublishedContent item)
+    {
+        var price = PurchaseService.GetPrice(item);
+        return price.HasValue ? "$" + price.Value.ToString("0.00") : "Open Access";
     }
 }
 
-<section class="main_slider_wrapper">
-
-    <div>
-        <a id="content_0_controls_0_BannerSlider_BannerSlideLink_0" href="http://www.lasertherapyu.org/welcome"><img src="/images/ltu_banner.png?h=450&amp;la=en&amp;w=1335" class="img-responsive" alt="LTU_banner18" width="1335" height="450" /></a>
-    </div>
-
-    <div>
-        <a id="content_0_controls_0_BannerSlider_BannerSlideLink_1" href="/protocols/lumbar-radiculopathy-v2"><img src="/images/q324.jpg?h=300&amp;la=en&amp;w=890" class="img-responsive" alt="Q324" width="890" height="300" /></a>
-    </div>
-
-    <div>
-        <a id="content_0_controls_0_BannerSlider_BannerSlideLink_2" href="http://www.lasertherapyu.org/comparative%20pillars%20paper"><img src="/images/papers1.png?h=300&amp;la=en&amp;w=890" class="img-responsive" alt="Papers1" width="890" height="300" /></a>
-    </div>
-
-    <div>
-        <a id="content_0_controls_0_BannerSlider_BannerSlideLink_3" href="https://register.gotowebinar.com/register/3636966107352339037?source=ltu"><img src="/images/mar25_1.jpg?h=300&amp;la=en&amp;w=890" class="img-responsive" alt="Mar25_1" width="890" height="300" /></a>
-    </div>
-
-</section>
-
-<section class="dashboard">
-
-    <div class="dashboard-column dashboard-column-1">
-
-        <div id="content_0_controls_1_lvColumnOne_pnlModule_0" class="dashboard-item dashboard-webinars">
-
-            <h2>Webinars</h2>
-            <div id="content_0_controls_1_lvColumnOne_pnlIcon_0" class="dashboard-item-icon">
-
-                <img id="content_0_controls_1_lvColumnOne_imgIcon_0" class="ress" data-original="/images/icon_webinars.png" width="145" height="109" data-large="145" data-narrow="128" data-small="145" src="/images/icon_webinars.png" />
-
+<section class="ltu-home">
+    <section class="ltu-home__hero">
+        <div>
+            <p class="ltu-home__kicker">Laser Therapy University</p>
+            <h1 class="ltu-home__headline">Clinical laser therapy, re-framed.</h1>
+            <p class="ltu-home__copy">Build a sharper education workflow across webinars, protocols, research, and video training. LTU now runs as one premium learning library with member access, checkout, history tracking, and fast re-entry to the resources that matter.</p>
+            <div class="ltu-home__actions">
+                <a class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide" href="/members/registration/">Create Account</a>
+                <a class="ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide" href="@(preRecordedWebinars?.Url() ?? "/webinars/")">Explore Library</a>
             </div>
-
-            <ul>
-                @if (webinarItems.Any())
-                {
-                    for (var i = 0; i < webinarItems.Count; i++)
-                    {
-                        var item = webinarItems[i];
-                        <li>
-                            <span>@GetWebinarTitle(item)</span>
-                            <a href="@item.Url()">
-                                @if (i == 0)
-                                {
-                                    <span class="featured">Featured Webinar  </span>
-                                }
-                                <span class="priceHighlight">FREE</span>
-                            </a>
-                        </li>
-                    }
-                }
-                else
-                {
-                    <li>
-                        <span>No webinars found</span>
-                    </li>
-                }
-            </ul>
-
-            <a id="content_0_controls_1_lvColumnOne_hlViewAll_0" title="View All Webinars" href="@(preRecordedWebinars?.Url() ?? webinarsRoot?.Url() ?? "/webinars")">View All Webinars</a>
-
         </div>
 
+        <aside class="ltu-home__hero-card">
+            <p class="ltu-home__kicker">Featured Resource</p>
+            @if (featuredItem != null)
+            {
+                <h2 class="ltu-home__hero-card-title">@ResourceTitle(featuredItem)</h2>
+                <p class="ltu-home__hero-card-copy">Move from discovery to purchase or immediate access without leaving the main LTU flow.</p>
+                <div class="ltu-home__actions">
+                    <a class="ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide" href="@featuredItem.Url()">Open Resource</a>
+                </div>
+            }
+            else
+            {
+                <h2 class="ltu-home__hero-card-title">Your library is ready</h2>
+                <p class="ltu-home__hero-card-copy">Publish content into the core sections and it will surface here automatically.</p>
+            }
+        </aside>
+    </section>
 
-        <div id="content_0_controls_1_lvColumnOne_pnlModule_1" class="dashboard-item dashboard-research">
+    <section class="ltu-home__stats">
+        <article class="ltu-home__stat"><span class="ltu-home__stat-label">Webinars</span><strong class="ltu-home__stat-value">@webinarCount</strong></article>
+        <article class="ltu-home__stat"><span class="ltu-home__stat-label">Protocols</span><strong class="ltu-home__stat-value">@protocolCount</strong></article>
+        <article class="ltu-home__stat"><span class="ltu-home__stat-label">Research</span><strong class="ltu-home__stat-value">@researchCount</strong></article>
+        <article class="ltu-home__stat"><span class="ltu-home__stat-label">Videos</span><strong class="ltu-home__stat-value">@videoCount</strong></article>
+    </section>
 
-            <h2>Research</h2>
-            <div id="content_0_controls_1_lvColumnOne_pnlIcon_1" class="dashboard-item-icon">
-
-                <img id="content_0_controls_1_lvColumnOne_imgIcon_1" class="ress" data-original="/images/icon_research.png" width="132" height="116" data-large="145" data-narrow="128" data-small="145" src="/images/icon_research.png" />
-
-            </div>
-
-            <ul>
-                @if (researchItems.Any())
-                {
-                    for (var i = 0; i < researchItems.Count; i++)
-                    {
-                        var item = researchItems[i];
-                        <li>
-                            <span>@GetResearchTitle(item)</span>
-                            <a href="@item.Url()">
-                                @if (i == 0)
-                                {
-                                    <span class="featured">Featured Study  </span>
-                                }
-                                <span class="priceHighlight">FREE</span>
-                            </a>
-                        </li>
-                    }
-                }
-                else
-                {
-                    <li>
-                        <span>No studies found</span>
-                    </li>
-                }
-            </ul>
-
-            <a id="content_0_controls_1_lvColumnOne_hlViewAll_1" title="View All Studies" href="@(researchRoot?.Url() ?? "/research")">View All Studies</a>
-
-        </div>
-
-
-        <div id="content_0_controls_1_lvColumnOne_pnlModule_2" class="dashboard-item dashboard-protocols">
-
-            <h2>Protocols</h2>
-            <div id="content_0_controls_1_lvColumnOne_pnlIcon_2" class="dashboard-item-icon">
-
-                <img id="content_0_controls_1_lvColumnOne_imgIcon_2" class="ress" data-original="/images/icon_protocols.png" width="100" height="118" data-large="145" data-narrow="128" data-small="145" src="/images/icon_protocols.png" />
-
-            </div>
-
-            <ul>
-                @if (protocolItems.Any())
-                {
-                    for (var i = 0; i < protocolItems.Count; i++)
-                    {
-                        var item = protocolItems[i];
-                        var priceLabel = GetProtocolPriceLabel(item);
-                        var isFree = priceLabel.Equals("FREE", StringComparison.OrdinalIgnoreCase);
-                        <li>
-                            <span>@GetProtocolTitle(item)</span>
-                            <a href="@item.Url()">
-                                @if (i == 0)
-                                {
-                                    <span class="featured">Featured Protocol  </span>
-                                }
-                                @if (isFree)
-                                {
-                                    <span class="priceHighlight">@priceLabel</span>
-                                }
-                                else
-                                {
-                                    <span>@priceLabel</span>
-                                }
-                            </a>
-                        </li>
-                    }
-                }
-                else
-                {
-                    <li>
-                        <span>No protocols found</span>
-                    </li>
-                }
-            </ul>
-
-            <a id="content_0_controls_1_lvColumnOne_hlViewAll_2" title="View All Protocols" href="@(protocolsRoot?.Url() ?? "/protocols")">View All Protocols</a>
-
-        </div>
-
-
-
-
-
-        <div id="content_0_controls_1_lvColumnOne_pnlModule_3" class="dashboard-item dashboard-videos">
-
-            <h2>Videos</h2>
-            <div id="content_0_controls_1_lvColumnOne_pnlIcon_3" class="dashboard-item-icon">
-
-                <img id="content_0_controls_1_lvColumnOne_imgIcon_3" class="ress" data-original="/images/icon_videos.png" width="100" height="118" data-large="145" data-narrow="128" data-small="145" src="/images/icon_videos.png" />
-
-            </div>
-
-            <ul>
-                @if (videoItems.Any())
-                {
-                    for (var i = 0; i < videoItems.Count; i++)
-                    {
-                        var item = videoItems[i];
-                        <li>
-                            <span>@GetVideoTitle(item)</span>
-                            <a href="@item.Url()">
-                                @if (i == 0)
-                                {
-                                    <span class="featured">Featured Video  </span>
-                                }
-                                <span class="priceHighlight">FREE</span>
-                            </a>
-                        </li>
-                    }
-                }
-                else
-                {
-                    <li>
-                        <span>No videos found</span>
-                    </li>
-                }
-            </ul>
-
-
-            <a id="content_0_controls_1_lvColumnOne_hlViewAll_3" title="View All Videos" href="@(videosRoot?.Url() ?? "/videos")">View All Videos</a>
-
-        </div>
-    </div>
-
-
-
-
-
-
-    <div class="dashboard-column dashboard-column-2">
-
-
-        <div id="content_0_controls_1_lvColumnTwo_pnlUpcomingItem_0" class="dashboard-upcoming-item dashboard-upcoming dashboard-upcoming-webinars">
-
-            <h2 class="dashboard-upcoming-h2">Upcoming Webinar</h2>
-            <div id="content_0_controls_1_lvColumnTwo_pnlAd_0" class="dashboard-upcoming-image dashboard-upcoming-events-image">
-
-                <a id="content_0_controls_1_lvColumnTwo_hlEvent_0" href="https://register.gotowebinar.com/register/3636966107352339037?source=ltu"><img class="ress" data-original="/images/0325_1.jpg" width="446" height="300" data-large="446" data-narrow="394" data-small="650" src="/images/0325_1.jpg" /></a>
-
-            </div>
-
-        </div>
-
-
-        <div id="content_0_controls_1_lvColumnTwo_pnlUpcomingItem_1" class="dashboard-upcoming-item dashboard-upcoming dashboard-upcoming-events">
-
-            <h2 class="dashboard-upcoming-h2">Subscribe Today</h2>
-            <div id="content_0_controls_1_lvColumnTwo_pnlAd_1" class="dashboard-upcoming-image dashboard-upcoming-events-image">
-
-                <a id="content_0_controls_1_lvColumnTwo_hlEvent_1" href="https://www.lasertherapyu.org/subscriptions"><img class="ress" data-original="/images/ltu_subscribe1.png" width="582" height="378" data-large="446" data-narrow="394" data-small="650" src="/images/ltu_subscribe1.png" /></a>
-
-            </div>
-
-        </div>
-
-
-        <div id="content_0_controls_1_lvColumnTwo_pnlUpcomingItem_2" class="dashboard-upcoming-item dashboard-upcoming dashboard-upcoming-events">
-
-            <h2 class="dashboard-upcoming-h2">ProtocolBuild.com</h2>
-            <div id="content_0_controls_1_lvColumnTwo_pnlAd_2" class="dashboard-upcoming-image dashboard-upcoming-events-image">
-
-                <a id="content_0_controls_1_lvColumnTwo_hlEvent_2" href="https://protocolbuild.com/"><img class="ress" data-original="/images/pb.jpg" width="582" height="378" data-large="446" data-narrow="394" data-small="650" src="/images/pb.jpg" /></a>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-@*
-@await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, Model.Title, Model.Subtitle, Model.MainImage))
-
-@if (Model.ContentRows != null)
-{
-    <article>
-        <div class="container">
-            <div class="row">
-                <div class="col-lg-8 col-md-10 mx-auto">
-                    @Html.GetBlockListHtml(Model.ContentRows)
+    <section class="ltu-home__grid">
+        <article class="ltu-home__section">
+            <div class="ltu-home__section-top">
+                <div class="ltu-home__section-icon"><img src="/images/icon_webinars.png" alt="Webinars" /></div>
+                <div>
+                    <h2 class="ltu-home__section-title">Webinars</h2>
+                    <p class="ltu-home__section-copy">Current sessions, premium recordings, and fast access to expert-led training.</p>
                 </div>
             </div>
-        </div>
-    </article>
-}*@
+            <div class="ltu-home__section-list">
+                @foreach (var item in webinarItems)
+                {
+                    <article class="ltu-home__resource">
+                        <h3 class="ltu-home__resource-title"><a href="@item.Url()">@ResourceTitle(item)</a></h3>
+                        <div class="ltu-home__resource-meta"><span>@ResourceMeta(item)</span><span class="ltu-home__resource-pill">@PriceLabel(item)</span></div>
+                    </article>
+                }
+            </div>
+            <div class="ltu-home__section-footer"><a class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide" href="@(preRecordedWebinars?.Url() ?? "/webinars/")">View All Webinars</a></div>
+        </article>
+
+        <article class="ltu-home__section">
+            <div class="ltu-home__section-top">
+                <div class="ltu-home__section-icon"><img src="/images/icon_protocols.png" alt="Protocols" /></div>
+                <div>
+                    <h2 class="ltu-home__section-title">Protocols</h2>
+                    <p class="ltu-home__section-copy">Downloadable treatment protocols and premium pathway content for fast clinical use.</p>
+                </div>
+            </div>
+            <div class="ltu-home__section-list">
+                @foreach (var item in protocolItems)
+                {
+                    <article class="ltu-home__resource">
+                        <h3 class="ltu-home__resource-title"><a href="@item.Url()">@ResourceTitle(item)</a></h3>
+                        <div class="ltu-home__resource-meta"><span>@ResourceMeta(item)</span><span class="ltu-home__resource-pill">@PriceLabel(item)</span></div>
+                    </article>
+                }
+            </div>
+            <div class="ltu-home__section-footer"><a class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide" href="@(protocolsRoot?.Url() ?? "/protocols/")">View All Protocols</a></div>
+        </article>
+
+        <article class="ltu-home__section">
+            <div class="ltu-home__section-top">
+                <div class="ltu-home__section-icon"><img src="/images/icon_research.png" alt="Research" /></div>
+                <div>
+                    <h2 class="ltu-home__section-title">Research</h2>
+                    <p class="ltu-home__section-copy">Published studies and abstracts surfaced through a cleaner, filterable library.</p>
+                </div>
+            </div>
+            <div class="ltu-home__section-list">
+                @foreach (var item in researchItems)
+                {
+                    <article class="ltu-home__resource">
+                        <h3 class="ltu-home__resource-title"><a href="@item.Url()">@ResourceTitle(item)</a></h3>
+                        <div class="ltu-home__resource-meta"><span>@ResourceMeta(item)</span><span class="ltu-home__resource-pill">@PriceLabel(item)</span></div>
+                    </article>
+                }
+            </div>
+            <div class="ltu-home__section-footer"><a class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide" href="@(researchRoot?.Url() ?? "/research/")">View All Research</a></div>
+        </article>
+
+        <article class="ltu-home__section">
+            <div class="ltu-home__section-top">
+                <div class="ltu-home__section-icon"><img src="/images/icon_videos.png" alt="Videos" /></div>
+                <div>
+                    <h2 class="ltu-home__section-title">Videos</h2>
+                    <p class="ltu-home__section-copy">Video learning content grouped into the same premium access flow as the rest of the site.</p>
+                </div>
+            </div>
+            <div class="ltu-home__section-list">
+                @foreach (var item in videoItems)
+                {
+                    <article class="ltu-home__resource">
+                        <h3 class="ltu-home__resource-title"><a href="@item.Url()">@ResourceTitle(item)</a></h3>
+                        <div class="ltu-home__resource-meta"><span>@ResourceMeta(item)</span><span class="ltu-home__resource-pill">@PriceLabel(item)</span></div>
+                    </article>
+                }
+            </div>
+            <div class="ltu-home__section-footer"><a class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide" href="@(videosRoot?.Url() ?? "/videos/")">View All Videos</a></div>
+        </article>
+    </section>
+</section>

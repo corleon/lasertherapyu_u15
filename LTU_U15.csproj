@@ -25,6 +25,15 @@
     <Compile Remove="LTU_U15.Tests\**\*.cs" />
     <Compile Remove="tmp-test-obj\**\*.cs" />
     <Compile Remove="tmp-test-bin\**\*.cs" />
+    <Compile Remove="artifacts\**\*.cs" />
+    <Content Remove="LTU_U15.Tests\**\*" />
+    <None Remove="LTU_U15.Tests\**\*" />
+    <Content Remove="tmp-test-obj\**\*" />
+    <None Remove="tmp-test-obj\**\*" />
+    <Content Remove="tmp-test-bin\**\*" />
+    <None Remove="tmp-test-bin\**\*" />
+    <Content Remove="artifacts\**\*" />
+    <None Remove="artifacts\**\*" />
   </ItemGroup>
 
   <PropertyGroup>

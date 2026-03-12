@@ -1,9 +1,9 @@
+@using System.Text.RegularExpressions
 @using Umbraco.Extensions
 @using Umbraco.Cms.Core.Models.PublishedContent
 @using LTU_U15.Services.Commerce
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 @inject IContentPurchaseService PurchaseService
-
 @{
     Layout = "master.cshtml";
 
@@ -20,105 +20,77 @@
     var headline = Model?.Value<string>("headline")?.Trim();
     var articleTitle = Model?.Value<string>("articleTitle")?.Trim();
     var title = !string.IsNullOrWhiteSpace(articleTitle) ? articleTitle : (!string.IsNullOrWhiteSpace(headline) ? headline : Model.Name);
-
     var articleDate = Model?.Value<DateTime?>("articleDate");
-    var articleContributors = Model?.Value<string>("articleContributors") ?? "";
-    var journal = Model?.Value<string>("journal") ?? "";
-    var articleReference = Model?.Value<string>("articleReference") ?? "";
-    var shortDescription = Model?.Value<string>("shortDescription") ?? "";
-    var articleCopy = Model?.Value<string>("articleCopy") ?? "";
-    var linkToFullArticle = Model?.Value<string>("linkToFullArticle") ?? "";
-
+    var articleContributors = Model?.Value<string>("articleContributors") ?? string.Empty;
+    var journal = Model?.Value<string>("journal") ?? string.Empty;
+    var articleReference = Model?.Value<string>("articleReference") ?? string.Empty;
+    var shortDescription = Model?.Value<string>("shortDescription") ?? string.Empty;
+    var articleCopy = Model?.Value<string>("articleCopy") ?? string.Empty;
+    var linkToFullArticle = Model?.Value<string>("linkToFullArticle") ?? string.Empty;
     var articleUrl = linkToFullArticle;
     if (linkToFullArticle.Contains("url=\""))
     {
-        var match = System.Text.RegularExpressions.Regex.Match(linkToFullArticle, @"url=""([^""]+)""");
+        var match = Regex.Match(linkToFullArticle, "url=\\\"([^\\\"]+)\\\"");
         if (match.Success)
         {
             articleUrl = match.Groups[1].Value;
         }
     }
-
-    var crumbs = Model?.AncestorsOrSelf()?.OrderBy(x => x.Level).ToList() ?? new List<IPublishedContent>();
 }
 
 <div class="content-wrapper content-research content-has-breadcrumb">
-
     <nav class="breadcrumb-nav">
-        @if (crumbs?.Any() == true)
+        @foreach (var c in Model.Ancestors().OrderBy(x => x.Level))
         {
-            foreach (var c in crumbs)
-            {
-                if (c.Id == Model.Id)
-                {
-                    <span>@c.Name</span>
-                }
-                else
-                {
-                    <a title="@c.Name" href="@c.Url()">@c.Name</a>
-                }
-            }
+            <a title="@c.Name" href="@c.Url()">@c.Name</a>
         }
+        <span>@title</span>
     </nav>
 
     <header class="content-header content-header-has-icon">
-        <div class="content-header-icon">
-            <img src="/images/icon_research.png" alt="Research" width="132" height="116" />
-        </div>
-        <h1 class="content-header-h1">Laser Therapy Research</h1>
-        <div class="content-header-copy">
-            @if (!string.IsNullOrWhiteSpace(shortDescription))
-            {
-                @Html.Raw(shortDescription)
-            }
-            else
-            {
-                <p>Laser Therapy U's online research portal houses an extensive collection of published studies, articles and abstracts from around the world.</p>
-            }
+        <div class="content-header-icon"><img src="/images/icon_research.png" alt="Research"></div>
+        <div>
+            <h1 class="content-header-h1">@title</h1>
+            <div class="content-header-copy">@Html.Raw(!string.IsNullOrWhiteSpace(shortDescription) ? shortDescription : "Published research and abstract content surfaced inside the unified LTU evidence library.")</div>
         </div>
     </header>
 
-    <section class="studySubHead">
-        <h2 class="listing-item-h2">@title</h2>
+    <section class="ltu-resource-detail">
+        <div class="ltu-resource-detail__grid">
+            <article class="ltu-resource-detail__main">
+                <div class="ltu-resource-detail__body ltu-rich-content">@Html.Raw(articleCopy)</div>
+            </article>
 
-        @if (!string.IsNullOrWhiteSpace(journal))
-        {
-            <p class="studyContributors">@journal</p>
-        }
-
-        @if (!string.IsNullOrWhiteSpace(articleContributors))
-        {
-            <p class="studyContributors">@Html.Raw(articleContributors)</p>
-        }
-
-        <div class="studyMeta">
-            @if (articleDate.HasValue)
-            {
-                @articleDate.Value.ToString("M/d/yyyy")
-            }
-            @if (!string.IsNullOrWhiteSpace(articleReference))
-            {
-                if (articleDate.HasValue)
-                {
-                    <text> - </text>
-                }
-                @Html.Raw(articleReference)
-            }
+            <aside class="ltu-resource-detail__sidebar-card">
+                <p class="ltu-resource-detail__sidebar-kicker">Research Details</p>
+                <h2 class="ltu-resource-detail__sidebar-title">Evidence context at a glance</h2>
+                <p class="ltu-resource-detail__sidebar-copy">Use the citation panel for fast reference, then return to the full study copy or open the external article source.</p>
+                <div class="ltu-resource-detail__meta">
+                    @if (articleDate.HasValue)
+                    {
+                        <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Published</span><span class="ltu-resource-detail__meta-value">@articleDate.Value.ToString("M/d/yyyy")</span></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(journal))
+                    {
+                        <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Journal</span><span class="ltu-resource-detail__meta-value">@journal</span></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(articleContributors))
+                    {
+                        <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Contributors</span><span class="ltu-resource-detail__meta-value">@Html.Raw(articleContributors)</span></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(articleReference))
+                    {
+                        <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Reference</span><span class="ltu-resource-detail__meta-value">@Html.Raw(articleReference)</span></div>
+                    }
+                </div>
+                <div class="ltu-resource-detail__downloads">
+                    @if (!string.IsNullOrWhiteSpace(articleUrl))
+                    {
+                        <a class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide" href="@articleUrl" target="_blank">Link to Full Article</a>
+                    }
+                    <a class="ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide" href="/research/">Back to Research</a>
+                </div>
+            </aside>
         </div>
     </section>
-
-    <article class="theStudy">
-        @Html.Raw(articleCopy)
-    </article>
-
-    @if (!string.IsNullOrWhiteSpace(articleUrl))
-    {
-        <ul class="listing-item-btns">
-            <li class="listing-item-btn">
-                <a title="Link to Full Article" class="btn btn-green" href="@articleUrl" target="_blank">Link to Full Article</a>
-            </li>
-        </ul>
-    }
-
 </div>
-

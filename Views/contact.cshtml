@@ -1,50 +1,72 @@
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
-
-@using Clean.Core.Models.ViewModels
 @using Umbraco.Cms.Core.Models.PublishedContent
-
 @{
     Layout = "master.cshtml";
+
     var submitted = false;
-    if (bool.TryParse(TempData["Success"]?.ToString() ?? "", out var success))
+    var success = false;
+    if (bool.TryParse(TempData["Success"]?.ToString() ?? string.Empty, out var tempSuccess))
     {
         submitted = true;
+        success = tempSuccess;
     }
 
     var title = Model.Value<string>("title");
+    if (string.IsNullOrWhiteSpace(title))
+    {
+        title = Model.Name;
+    }
+
     var subtitle = Model.Value<string>("subtitle");
-    var mainImage = Model.Value<IPublishedContent>("mainImage");
     var successMessage = Model.Value<string>("successMessage");
     var errorMessage = Model.Value<string>("errorMessage");
     var instructionMessage = Model.Value<string>("instructionMessage");
 }
 
-@await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, title, subtitle, mainImage))
+<div class="content-wrapper content-has-breadcrumb">
+    <nav class="breadcrumb-nav">
+        <a title="Home" href="/">Home</a>
+        <span>@title</span>
+    </nav>
 
-<main class="mb-4">
-    <div class="container px-4 px-lg-5">
-        <div class="row gx-4 gx-lg-5 justify-content-center">
-            <div class="col-md-10 col-lg-8 col-xl-7">
-                @if(submitted)
-                {
-                    if (success)
-                    {
-                        @successMessage
-                    }
-                    else
-                    {
-                        @errorMessage
-                    }
-                }
-                else
-                {
-                    @instructionMessage
-                    <div class="my-5">
-                        @await Component.InvokeAsync("Contact")
-                    </div>
+    <header class="content-header">
+        <h1 class="content-header-h1">@title</h1>
+        @if (!string.IsNullOrWhiteSpace(subtitle))
+        {
+            <div class="content-header-copy">@Html.Raw(subtitle)</div>
+        }
+    </header>
 
+    <section class="ltu-page-grid">
+        <article class="ltu-page-card ltu-rich-content">
+            <p class="ltu-page-card__eyebrow">Contact</p>
+            <h2 class="ltu-page-card__title">Send a message</h2>
+            @if (submitted)
+            {
+                <div class="membership-alert @(success ? "membership-alert-success" : "membership-alert-error") membership-alert-animated" role="alert">
+                    @Html.Raw(success ? successMessage : errorMessage)
+                </div>
+            }
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(instructionMessage))
+                {
+                    <div class="content-header-copy">@Html.Raw(instructionMessage)</div>
                 }
-            </div>
-        </div>
-    </div>
-</main>
+
+                @await Component.InvokeAsync("Contact")
+            }
+        </article>
+
+        <aside class="ltu-page-card ltu-page-card--accent">
+            <p class="ltu-page-card__eyebrow">LTU Support</p>
+            <h2 class="ltu-page-card__title">We will route it fast</h2>
+            <p class="ltu-page-card__copy">Use this form for general questions, account support, and content access issues. Membership and billing workflows are now connected, so support can trace purchases and access faster.</p>
+            <ul class="ltu-page-card__list">
+                <li>Questions about paid access and member accounts</li>
+                <li>Problems with registration, login, or checkout</li>
+                <li>Requests related to protocols, webinars, videos, and research</li>
+            </ul>
+        </aside>
+    </section>
+</div>

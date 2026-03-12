@@ -1,48 +1,50 @@
-﻿@inherits UmbracoViewPage<Clean.Core.Models.ViewModels.PageHeaderViewModel>
+@inherits UmbracoViewPage<Clean.Core.Models.ViewModels.PageHeaderViewModel>
 
 @{
-    string mainImageUrl = Model.HasBackgroundImage ? Model.BackgroundImage.GetCropUrl(1903, 628) : "/media/f01jqvmq/2.jpg";
+    string heroImageUrl = Model.HasBackgroundImage
+        ? Model.BackgroundImage.GetCropUrl(1600, 900)
+        : "/media/f01jqvmq/2.jpg";
+    var pageTitle = !string.IsNullOrWhiteSpace(Model.Title) ? Model.Title : Model.Name;
 }
 
-<header class="masthead" style="background-image: url('@mainImageUrl')">
-    <div class="container position-relative px-4 px-lg-5">
-        <div class="row gx-4 gx-lg-5 justify-content-center">
-            <div class="col-md-10 col-lg-8 col-xl-7">
-                <div class="@(Model.ArticleDate.HasValue ? "post-heading" : "site-heading")">
-                    <h1>@(!string.IsNullOrWhiteSpace(Model.Title) ? Model.Title : Model.Name)</h1>
+<div class="content-wrapper">
+    <header class="ltu-page-hero @(Model.IsArticle ? "ltu-page-hero--article" : string.Empty)">
+        <div class="ltu-page-hero__content">
+            <p class="ltu-page-hero__eyebrow">@(Model.IsArticle ? "Featured Insight" : "Laser Therapy University")</p>
+            <h1 class="ltu-page-hero__title">@pageTitle</h1>
 
-                    @if (Model.IsArticle)
+            @if (Model.HasSubtitle)
+            {
+                <p class="ltu-page-hero__subtitle">@Model.Subtitle</p>
+            }
+
+            @if (Model.IsArticle)
+            {
+                <div class="ltu-page-hero__meta">
+                    @if (Model.HasAuthor)
                     {
-                        if (Model.HasSubtitle)
-                        {
-                            <h2 class="subheading mb-4">@Model.Subtitle</h2>
-                        }
-                        <span class="meta">
-                            @Umbraco.GetDictionaryValue("Article.Posted")
-                            @if (Model.HasAuthor)
-                            {
-                                @Umbraco.GetDictionaryValue("Article.By")@Html.Raw("&nbsp;")@Model.AuthorName
-                            }
-                            @Umbraco.GetDictionaryValue("Article.On")@Html.Raw("&nbsp;")@Model.ArticleDate.Value.ToString("MMMM dd, yyyy")
-                        </span>
-                        @if (Model.Categories != null && Model.Categories.Any())
-                        {
-                            <span class="mt-4 d-block"></span>
-                            @foreach (var category in Model.Categories.Select(x => x.Name).OrderBy(y => y))
-                            {
-                                <span class="badge rounded-pill bg-light text-dark border-dark border-5">@category</span>
-                            }
-                        }
+                        <span>By @Model.AuthorName</span>
                     }
-                    else
+                    @if (Model.ArticleDate.HasValue)
                     {
-                        if (Model.HasSubtitle)
-                        {
-                            <span class="subheading">@(Model.Subtitle)</span>
-                        }
+                        <span>@Model.ArticleDate.Value.ToString("MMMM dd, yyyy")</span>
                     }
                 </div>
-            </div>
+
+                @if (Model.Categories != null && Model.Categories.Any())
+                {
+                    <div class="ltu-page-hero__tags">
+                        @foreach (var category in Model.Categories.Select(x => x.Name).OrderBy(x => x))
+                        {
+                            <span class="ltu-page-hero__tag">@category</span>
+                        }
+                    </div>
+                }
+            }
         </div>
-    </div>
-</header>
+
+        <div class="ltu-page-hero__media">
+            <img src="@heroImageUrl" alt="@pageTitle" />
+        </div>
+    </header>
+</div>

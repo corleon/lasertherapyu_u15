@@ -1,7 +1,4 @@
 @using System.Text.RegularExpressions
-@using Umbraco.Cms.Core
-@using Umbraco.Cms.Web.Common.PublishedModels;
-@using Umbraco.Extensions
 @using Umbraco.Cms.Core.Models.PublishedContent
 @using LTU_U15.Services.Commerce
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
@@ -9,61 +6,38 @@
 @{
     Layout = "master.cshtml";
     var purchasedKeys = await PurchaseService.GetCurrentMemberPurchasedKeysAsync();
+    var allResearch = Model!.Children().Where(x => x.IsPublished() && x.ContentType.Alias == "research").OrderByDescending(x => x.Value<DateTime?>("articleDate") ?? DateTime.MinValue).ThenBy(x => x.Value<string>("headline") ?? x.Name).ToList();
 
-    // Get all research items under this list page
-    var allResearch = Model!.Children()
-        .Where(x => x.IsPublished() && x.ContentType.Alias == "research")
-        .OrderByDescending(x => x.Value<DateTime?>("articleDate") ?? DateTime.MinValue)
-        .ThenBy(x => x.Value<string>("headline") ?? x.Name)
-        .ToList();
-
-    var total = allResearch.Count;
-
-    string DisplayDate(IPublishedContent c)
-        => c.Value<DateTime?>("articleDate")?.ToString("M/d/yyyy") ?? "";
-
+    string DisplayDate(IPublishedContent c) => c.Value<DateTime?>("articleDate")?.ToString("M/d/yyyy") ?? string.Empty;
     string Summary(IPublishedContent c)
     {
-        var html = c?.Value<string>("articleCopy") ?? "";
-        // Strip HTML and truncate for listing
+        var html = c?.Value<string>("articleCopy") ?? string.Empty;
         var text = Regex.Replace(html, "<.*?>", " ");
         text = Regex.Replace(text, @"\s+", " ").Trim();
-        if (text.Length > 300)
-            text = text.Substring(0, 300) + "...";
-        return text;
+        return text.Length > 320 ? text[..320] + "..." : text;
     }
 }
 
-@await Html.PartialAsync("filterPanel", (Items: (IEnumerable<IPublishedContent>)allResearch, Total: total, ItemSelector: "research-item"))
+@await Html.PartialAsync("filterPanel", (Items: (IEnumerable<IPublishedContent>)allResearch, Total: allResearch.Count, ItemSelector: "research-item"))
 
 <div class="content-wrapper content-research content-has-breadcrumb">
-
     <nav class="breadcrumb-nav">
         <a title="Home" href="/">Home</a>
-        <span>Research</span>
+        <span>@Model.Name</span>
     </nav>
 
     <header class="content-header content-header-has-icon">
-        <div class="content-header-icon">
-            <img src="/images/icon_research.png" alt="Research" width="132" height="116">
-        </div>
-        <h1 class="content-header-h1">Laser Therapy Research</h1>
-        <div class="content-header-copy">
-            <p>Laser Therapy U's online research portal houses an extensive collection of published studies, articles and abstracts from around the world.</p>
-            <p>Sort through our entire research database using the filter tool above.</p>
-            <p>Be sure to check back frequently…new items are added weekly!</p>
+        <div class="content-header-icon"><img src="/images/icon_research.png" alt="Research"></div>
+        <div>
+            <h1 class="content-header-h1">Laser Therapy Research</h1>
+            <div class="content-header-copy">Search published studies, abstracts, and evidence summaries inside a cleaner research interface with filtering and premium access routing where needed.</div>
         </div>
     </header>
 
     <section class="listing">
         @if (!allResearch.Any())
         {
-            <div class="listing-item">
-                <h2 class="listing-item-h2">No research found</h2>
-                <div class="listing-item-description">
-                    There aren't any research articles to show.
-                </div>
-            </div>
+            <div class="listing-item"><div class="ltu-empty-state">No research found.</div></div>
         }
         else
         {
@@ -72,238 +46,93 @@
                 var headline = r.Value<string>("headline")?.Trim();
                 var articleTitle = r.Value<string>("articleTitle")?.Trim();
                 var title = !string.IsNullOrWhiteSpace(articleTitle) ? articleTitle : (!string.IsNullOrWhiteSpace(headline) ? headline : r.Name);
-
-                var journal = r.Value<string>("journal") ?? "";
-                var articleContributors = r.Value<string>("articleContributors") ?? "";
-                var articleReference = r.Value<string>("articleReference") ?? "";
+                var articleReference = r.Value<string>("articleReference") ?? string.Empty;
+                var journal = r.Value<string>("journal") ?? string.Empty;
                 var isPaid = PurchaseService.IsPaidContent(r);
                 var isPurchased = isPaid && purchasedKeys.Contains(r.Key);
                 var price = PurchaseService.GetPrice(r);
-                var primaryActionClass = isPurchased
-                    ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide"
-                    : isPaid
-                        ? "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide"
-                        : "ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide";
-
-                // MultiNodeTreePicker - same as protocols
+                var primaryActionClass = isPurchased ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide" : isPaid ? "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide" : "ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide";
                 var tagNodes = r.Value<IEnumerable<IPublishedContent>>("tags");
-                var tagKeys = tagNodes != null && tagNodes.Any()
-                    ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString()))
-                    : "";
+                var tagKeys = tagNodes != null && tagNodes.Any() ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString())) : string.Empty;
 
                 <div class="listing-item research-item" data-tags="@tagKeys" data-research-key="@r.Key">
-                    <h2 class="listing-item-h2">
-                        @title
-                        @if (isPurchased)
+                    <div class="ltu-resource-card__main">
+                        <p class="ltu-resource-card__eyebrow">Research</p>
+                        <h2 class="listing-item-h2">
+                            @title
+                            @if (isPurchased)
+                            {
+                                <span class="purchase-badge ltu-listing-badge">Purchased</span>
+                            }
+                        </h2>
+                        <div class="listing-item-description">@Summary(r)</div>
+
+                        @if (tagNodes != null && tagNodes.Any())
                         {
-                            <span class="purchase-badge ltu-listing-badge">Purchased</span>
+                            var tagsByCategory = tagNodes.Where(tag => tag != null && tag.Parent != null)
+                                .GroupBy(tag => tag.Parent.Key)
+                                .Select(g => new { Category = g.First().Parent, Tags = g.OrderBy(t => t.SortOrder).ToList() })
+                                .OrderBy(g => g.Category?.Parent?.SortOrder ?? 0)
+                                .ThenBy(g => g.Category?.SortOrder ?? 0)
+                                .ToList();
+
+                            <div class="tags">
+                                <div class="tagHead">Tags</div>
+                                <div class="theTags">
+                                    @foreach (var categoryGroup in tagsByCategory)
+                                    {
+                                        <div class="theTags__group">
+                                            <span class="typeTag">@(categoryGroup.Category?.Value<string>("categoryTitle") ?? categoryGroup.Category?.Name)</span>
+                                            @foreach (var tag in categoryGroup.Tags)
+                                            {
+                                                <span class="theTags__chip" data-tag-key="@tag.Key">@(tag.Value<string>("tagName") ?? tag.Name)</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
                         }
-                    </h2>
-
-                    @*@if (!string.IsNullOrWhiteSpace(journal))
-                    {
-                        <p class="studyContributors">@journal</p>
-                    }
-
-                    @if (!string.IsNullOrWhiteSpace(articleContributors))
-                    {
-                        <p class="studyContributors">@Html.Raw(articleContributors)</p>
-                    }*@
-
-                    <dl class="listing-item-date">
-                        <dt>@DisplayDate(r)</dt>
-                        @if (!string.IsNullOrWhiteSpace(articleReference))
-                        {
-                            <text> - </text>
-                            <dd>@Html.Raw(articleReference)</dd>
-                        }
-                    </dl>
-
-                    <div class="listing-item-description">
-                        @Summary(r)
                     </div>
 
-                    @if (price.HasValue)
-                    {
-                        <dl class="listing-item-price">
-                            <dt>Price:</dt>
-                            <dd>$@price.Value.ToString("0.00")</dd>
-                        </dl>
-                    }
-
-                    @if (tagNodes != null && tagNodes.Any())
-                    {
-                        var tagsByCategory = tagNodes
-                            .Where(tag => tag != null && tag.Parent != null)
-                            .GroupBy(tag => tag.Parent.Key)
-                            .Select(g => new
+                    <aside class="ltu-resource-card__meta">
+                        <div class="ltu-resource-detail__meta">
+                            @if (!string.IsNullOrWhiteSpace(DisplayDate(r)))
                             {
-                                CategoryKey = g.Key,
-                                Category = g.First().Parent,
-                                Tags = g.OrderBy(t => t.SortOrder).ToList()
-                            })
-                            .OrderBy(g => g.Category?.Parent?.SortOrder ?? 0)
-                            .ThenBy(g => g.Category?.SortOrder ?? 0)
-                            .ToList();
-
-                        <div class="tags">
-                            <div class="tagHead">Tags:</div>
-                            <div class="theTags">
-                                @{
-                                    var isFirst = true;
-                                    foreach (var categoryGroup in tagsByCategory)
-                                    {
-                                        var category = categoryGroup.Category;
-                                        var tagsInCategory = categoryGroup.Tags;
-
-                                        if (!isFirst)
-                                        {
-                                            @:,
-                                        }
-                                        isFirst = false;
-
-                                        var categoryTitle = category?.Value<string>("categoryTitle") ?? category?.Name ?? "";
-                                        <span class="typeTag">@categoryTitle</span>
-                                        @:,
-
-                                        var tagCount = tagsInCategory.Count;
-                                        for (int i = 0; i < tagCount; i++)
-                                        {
-                                            var tag = tagsInCategory[i];
-                                            var tagName = tag.Value<string>("tagName") ?? tag.Name;
-
-                                            <span data-tag-key="@tag.Key">@tagName</span>
-
-                                            if (i < tagCount - 1)
-                                            {
-                                                @:,
-                                            }
-                                        }
-                                    }
-                                }
-                            </div>
+                                <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Published</span><span class="ltu-resource-detail__meta-value">@DisplayDate(r)</span></div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(journal))
+                            {
+                                <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Journal</span><span class="ltu-resource-detail__meta-value">@journal</span></div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(articleReference))
+                            {
+                                <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Reference</span><span class="ltu-resource-detail__meta-value">@Html.Raw(articleReference)</span></div>
+                            }
+                            @if (price.HasValue)
+                            {
+                                <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Price</span><span class="ltu-resource-detail__meta-value">$@price.Value.ToString("0.00")</span></div>
+                            }
                         </div>
-                    }
 
-                    <ul class="listing-item-btns ltu-listing-actions">
-                        <li class="listing-item-btn">
-                            <a class="@primaryActionClass" href="@(isPaid && !isPurchased ? $"/billing/checkout?contentKey={r.Key}&returnUrl={Uri.EscapeDataString(r.Url() ?? "/research")}" : r.Url())">@(isPurchased ? "Open" : (isPaid ? "Buy Now" : "View Abstract"))</a>
-                        </li>
-                        @if (isPaid && !isPurchased)
-                        {
+                        <ul class="listing-item-btns ltu-listing-actions">
                             <li class="listing-item-btn">
-                                <form method="post" action="/cart/add">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="contentKey" value="@r.Key" />
-                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                    <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Add to Cart</button>
-                                </form>
+                                <a class="@primaryActionClass" href="@(isPaid && !isPurchased ? $"/billing/checkout?contentKey={r.Key}&returnUrl={Uri.EscapeDataString(r.Url() ?? "/research/")}" : r.Url())">@(isPurchased ? "Open" : (isPaid ? "Buy Now" : "View Abstract"))</a>
                             </li>
-                        }
-                    </ul>
+                            @if (isPaid && !isPurchased)
+                            {
+                                <li class="listing-item-btn">
+                                    <form method="post" action="/cart/add">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="contentKey" value="@r.Key" />
+                                        <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                        <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Add to Cart</button>
+                                    </form>
+                                </li>
+                            }
+                        </ul>
+                    </aside>
                 </div>
             }
         }
     </section>
 </div>
-
-<style>
-    /* Research listing item spacing */
-    .listing-item.research-item {
-        padding: 20px;
-        margin-bottom: 20px;
-        border-bottom: 1px solid #ddd;
-    }
-
-    .studyContributors {
-        color: #666;
-        font-style: italic;
-        margin: 5px 0;
-    }
-
-    @*.listing-item-date {
-        color: #888;
-        font-size: 0.9em;
-        margin: 10px 0;
-    }*@
-    
-
-        .listing-item-date dt,
-        .listing-item-date dd {
-            display: inline;
-        }
-
-    .listing-item-btns {
-        margin-top: 15px;
-        margin-bottom: 15px;
-        list-style: none;
-        padding: 0;
-    }
-
-    .listing-item-btn form {
-        display: inline-block;
-    }
-
-    /* Tags section styling */
-    .tags {
-        display: flex;
-        flex-direction: row;
-        margin-top: 15px;
-        padding-top: 15px;
-        border-top: 1px solid #eee;
-    }
-
-    .tagHead {
-        font-weight: bold;
-        margin-right: 10px;
-        white-space: nowrap;
-    }
-
-    .theTags {
-        flex: 1;
-        line-height: 1.6;
-    }
-
-        .theTags .typeTag {
-            font-weight: bold;
-        }
-
-    @@media (max-width: 768px) {
-        .listing-item.research-item {
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-
-        .tags {
-            flex-direction: column;
-        }
-
-        .tagHead {
-            margin-bottom: 5px;
-        }
-    }
-
-    @@media (max-width: 480px) {
-        .listing-item.research-item {
-            padding: 10px;
-            margin-bottom: 10px;
-        }
-    }
-
-    .purchase-badge,
-    .ltu-listing-badge {
-        display: inline-flex;
-        align-items: center;
-        margin-left: 10px;
-        padding: 5px 10px;
-        border-radius: 999px;
-        background: rgba(0, 103, 56, 0.10);
-        color: #006738;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: .08em;
-        line-height: 1;
-        text-transform: uppercase;
-        vertical-align: middle;
-    }
-</style>

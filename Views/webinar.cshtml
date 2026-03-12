@@ -3,7 +3,6 @@
 @using LTU_U15.Services.Commerce
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 @inject IContentPurchaseService PurchaseService
-
 @{
     Layout = "master.cshtml";
 
@@ -18,102 +17,85 @@
     await PurchaseService.TrackCurrentMemberRecentlyViewedAsync(Model.Key);
 
     var pageTitle = Model?.Value<string>("pageTitle")?.Trim();
-    var title = (Model?.Value<string>("title")?.Trim() ?? pageTitle ?? "");
+    var title = Model?.Value<string>("title")?.Trim() ?? pageTitle ?? Model.Name;
+    var descriptionHtml = Model?.Value<string>("description") ?? string.Empty;
+    var videoEmbed = Model?.Value<string>("videoEmbedCode") ?? string.Empty;
+    var length = (Model?.Value<string>("length") ?? string.Empty).Trim();
+    var date = Model?.Value<DateTime?>("date");
+    var dateFormatted = date.HasValue ? date.Value.ToString("M/d/yyyy") : string.Empty;
+    var related = Model?.Siblings()?.Where(x => x.IsPublished() && (x.ContentType.Alias == "veterinaryWebinar" || x.ContentType.Alias == "webinar") && x.Value<bool?>("active") != false).OrderByDescending(x => x.Value<DateTime?>("date") ?? DateTime.MinValue).Take(3).ToList() ?? new List<IPublishedContent>();
 
-    var descriptionHtml = Model?.Value<string>("description") ?? "";
-    var videoEmbed = Model?.Value<string>("videoEmbedCode") ?? "";
-    var length = (Model?.Value<string>("length") ?? "").Trim();
-    var date = Model?.Value<System.DateTime?>("date");
-    string dateFormatted = date.HasValue ? date.Value.ToString("M/d/yyyy") : "";
-
-    var crumbs = Model?.AncestorsOrSelf()?.OrderBy(x => x.Level).ToList() ?? new List<IPublishedContent>();
-
-    var related = Model?.Siblings()?
-        .Where(x => x.IsPublished()
-            && (x.ContentType.Alias == "veterinaryWebinar" || x.ContentType.Alias == "webinar")
-            && x.Value<bool?>("active") != false)
-        .OrderByDescending(x => x.Value<System.DateTime?>("date") ?? System.DateTime.MinValue)
-        .Take(3)
-        .ToList() ?? new List<IPublishedContent>();
-
-    string Summary(IPublishedContent c)
-    {
-        var html = c?.Value<string>("description") ?? "";
-        var text = html.StripHtml().Trim();
-        return text;
-    }
+    string Summary(IPublishedContent c) => (c?.Value<string>("description") ?? string.Empty).StripHtml().Trim();
 }
 
-<div class="content-wrapper content-webinars content-has-breadcrumb" data-variant="768">
-
+<div class="content-wrapper content-webinars content-has-breadcrumb">
     <nav class="breadcrumb-nav">
-        @if (crumbs?.Any() == true)
+        @foreach (var c in Model.Ancestors().OrderBy(x => x.Level))
         {
-            foreach (var c in crumbs)
-            {
-                if (c.Id == Model.Id) { continue; }
-                <a title="@c.Name" href="@c.Url()">@c.Name</a>
-            }
+            <a title="@c.Name" href="@c.Url()">@c.Name</a>
         }
+        <span>@title</span>
     </nav>
 
     <header class="content-header content-header-has-icon">
-        <div class="content-header-icon">
-            <img src="/images/icon_webinars.png?h=109&amp;la=en&amp;w=145" alt="Webinars" width="145" height="109">
+        <div class="content-header-icon"><img src="/images/icon_webinars.png" alt="Webinars"></div>
+        <div>
+            <h1 class="content-header-h1">@title</h1>
+            <div class="content-header-copy">Recorded webinar training inside the new LTU learning flow, with direct re-entry from your member library after purchase.</div>
         </div>
-        <h1 class="content-header-h1">@title</h1>
     </header>
 
-    <section class="content-body">
-        @if (!string.IsNullOrWhiteSpace(videoEmbed))
-        {
-            <div class="content-video-player">
-                @Html.Raw(videoEmbed)
-            </div>
-        }
-
-        @if (!string.IsNullOrWhiteSpace(length) || !string.IsNullOrWhiteSpace(dateFormatted))
-        {
-            <dl class="listing-item-date">
-                @if (!string.IsNullOrWhiteSpace(length))
+    <section class="ltu-resource-detail">
+        <div class="ltu-resource-detail__grid">
+            <article class="ltu-resource-detail__main">
+                @if (!string.IsNullOrWhiteSpace(videoEmbed))
                 {
-                    <dt>Length:</dt>
-                    <dd>@length</dd>
+                    <div class="ltu-resource-detail__media">@Html.Raw(videoEmbed)</div>
                 }
-                @if (!string.IsNullOrWhiteSpace(dateFormatted))
+                @if (!string.IsNullOrWhiteSpace(descriptionHtml))
                 {
-                    <dt>Original Webinar Date:</dt>
-                    <dd>@dateFormatted</dd>
+                    <div class="ltu-resource-detail__body ltu-rich-content">@Html.Raw(descriptionHtml)</div>
                 }
-            </dl>
-        }
-
-        @if (!string.IsNullOrWhiteSpace(descriptionHtml))
-        {
-            <article class="content-article">
-                @Html.Raw(descriptionHtml)
             </article>
+
+            <aside class="ltu-resource-detail__sidebar-card">
+                <p class="ltu-resource-detail__sidebar-kicker">Webinar Details</p>
+                <h2 class="ltu-resource-detail__sidebar-title">Member access unlocked</h2>
+                <p class="ltu-resource-detail__sidebar-copy">This resource is now attached to your LTU account and can be reopened from My Profile.</p>
+                <div class="ltu-resource-detail__meta">
+                    @if (!string.IsNullOrWhiteSpace(length))
+                    {
+                        <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Length</span><span class="ltu-resource-detail__meta-value">@length</span></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(dateFormatted))
+                    {
+                        <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Original Date</span><span class="ltu-resource-detail__meta-value">@dateFormatted</span></div>
+                    }
+                </div>
+                <div class="ltu-resource-detail__downloads">
+                    <a class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide" href="/members/my-profile/">Go to My Profile</a>
+                    <a class="ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide" href="/webinars/">More Webinars</a>
+                </div>
+            </aside>
+        </div>
+
+        @if (related.Any())
+        {
+            <section class="related-products">
+                <h2 class="related-products-h2">More Webinars</h2>
+                <div class="related-products-grid">
+                    @foreach (var w in related)
+                    {
+                        var wTitle = w.Value<string>("title");
+                        if (string.IsNullOrWhiteSpace(wTitle)) { wTitle = w.Name; }
+                        <article class="related-products-item">
+                            <h3 class="related-products-h3">@wTitle</h3>
+                            <div class="related-products-description">@Summary(w)</div>
+                            <a class="related-products-link" href="@w.Url()">View Webinar</a>
+                        </article>
+                    }
+                </div>
+            </section>
         }
     </section>
-
-    @if (related.Any())
-    {
-        <section class="related-products">
-            <h2 class="related-products-h2">More Webinars</h2>
-
-            <div class="related-products-grid">
-                @foreach (var w in related)
-                {
-                    var wTitle = w.Value<string>("title");
-                    if (string.IsNullOrWhiteSpace(wTitle)) wTitle = w.Name;
-                    <div class="related-products-item">
-                        <h3 class="related-products-h3">@wTitle</h3>
-                        <div class="related-products-description">@Summary(w)</div>
-                        <a class="btn btn-green btn-218" href="@w.Url()">View Webinar</a>
-                    </div>
-                }
-            </div>
-        </section>
-    }
 </div>
-

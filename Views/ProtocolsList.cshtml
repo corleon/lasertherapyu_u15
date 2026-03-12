@@ -1,6 +1,3 @@
-@using System.Text.RegularExpressions
-@using Umbraco.Cms.Web.Common.PublishedModels;
-@using Umbraco.Extensions
 @using Umbraco.Cms.Core.Models.PublishedContent
 @using LTU_U15.Services.Commerce
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
@@ -8,253 +5,116 @@
 @{
     Layout = "master.cshtml";
     var purchasedKeys = await PurchaseService.GetCurrentMemberPurchasedKeysAsync();
+    var allProtocols = Model!.Children().Where(x => x.IsPublished() && x.ContentType.Alias == "protocol").OrderBy(x => x.Value<string>("headline") ?? x.Name).ToList();
 
-    // Get all protocols under this list page
-    var allProtocols = Model!.Children()
-        .Where(x => x.IsPublished() && x.ContentType.Alias == "protocol")
-        .OrderBy(x => x.Value<string>("headline") ?? x.Name)
-        .ToList();
-
-    var total = allProtocols.Count;
-
-    string Summary(IPublishedContent c)
+    string Summary(IPublishedContent c) => (c?.Value<string>("shortDescription") ?? string.Empty).Trim();
+    string PriceText(IPublishedContent c)
     {
-        var html = c?.Value<string>("shortDescription") ?? "";
-        return html.Trim();
-    }
-
-    string GetPrice(IPublishedContent c)
-    {
-        var salePrice = c?.Value<string>("salePrice") ?? "";
-        var price = c?.Value<string>("price") ?? "";
-        
-        if (!string.IsNullOrWhiteSpace(salePrice) && salePrice != "0" && salePrice != "0.00")
-            return salePrice;
+        var salePrice = (c?.Value<string>("salePrice") ?? string.Empty).Trim();
+        var price = (c?.Value<string>("price") ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(salePrice) && salePrice != "0" && salePrice != "0.00") return salePrice;
         return price;
     }
 }
 
-@await Html.PartialAsync("filterPanel", (Items: (IEnumerable<IPublishedContent>)allProtocols, Total: total, ItemSelector: "protocol-item"))
+@await Html.PartialAsync("filterPanel", (Items: (IEnumerable<IPublishedContent>)allProtocols, Total: allProtocols.Count, ItemSelector: "protocol-item"))
 
 <div class="content-wrapper content-protocols content-has-breadcrumb">
-
     <nav class="breadcrumb-nav">
         <a title="Home" href="/">Home</a>
-        <span>Protocols</span>
+        <span>@Model.Name</span>
     </nav>
 
     <header class="content-header content-header-has-icon">
-        <div class="content-header-icon">
-            <img src="/images/icon_protocols.png?h=118&amp;la=en&amp;w=100" alt="Protocols" width="100" height="118">
+        <div class="content-header-icon"><img src="/images/icon_protocols.png" alt="Protocols"></div>
+        <div>
+            <h1 class="content-header-h1">@Model.Name</h1>
+            <div class="content-header-copy">Treatment protocols now sit inside the same premium product flow as the rest of the LTU library, with direct member access after purchase.</div>
         </div>
-        <h1 class="content-header-h1">Protocols</h1>
     </header>
 
     <section class="listing">
         @if (!allProtocols.Any())
         {
-            <div class="listing-item">
-                <h2 class="listing-item-h2">No protocols found</h2>
-                <div class="listing-item-description">
-                    There aren't any protocols to show.
-                </div>
-            </div>
+            <div class="listing-item"><div class="ltu-empty-state">No protocols found.</div></div>
         }
         else
         {
             foreach (var p in allProtocols)
             {
                 var title = p.Value<string>("headline")?.Trim();
-                if (string.IsNullOrWhiteSpace(title)) title = p.Name;
-
+                if (string.IsNullOrWhiteSpace(title)) { title = p.Name; }
                 var tagNodes = p.Value<IEnumerable<IPublishedContent>>("tags");
-                var tagKeys = tagNodes != null && tagNodes.Any()
-                    ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString()))
-                    : "";
-
-                var priceDisplay = GetPrice(p);
+                var tagKeys = tagNodes != null && tagNodes.Any() ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString())) : string.Empty;
+                var priceDisplay = PriceText(p);
                 var isPaid = PurchaseService.IsPaidContent(p);
                 var isPurchased = isPaid && purchasedKeys.Contains(p.Key);
-                var primaryActionClass = isPurchased
-                    ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide"
-                    : isPaid
-                        ? "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide"
-                        : "ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide";
+                var primaryActionClass = isPurchased ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide" : isPaid ? "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide" : "ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide";
 
                 <div class="listing-item protocol-item" data-tags="@tagKeys" data-protocol-key="@p.Key">
-                    <h2 class="listing-item-h2">
-                        @title
-                        @if (isPurchased)
-                        {
-                            <span class="purchase-badge ltu-listing-badge">Purchased</span>
-                        }
-                    </h2>
+                    <div class="ltu-resource-card__main">
+                        <p class="ltu-resource-card__eyebrow">Protocol</p>
+                        <h2 class="listing-item-h2">
+                            @title
+                            @if (isPurchased)
+                            {
+                                <span class="purchase-badge ltu-listing-badge">Purchased</span>
+                            }
+                        </h2>
+                        <div class="listing-item-description">@Html.Raw(Summary(p))</div>
 
-                    <div class="listing-item-description">
-                        @Html.Raw(Summary(p) ?? "")
+                        @if (tagNodes != null && tagNodes.Any())
+                        {
+                            var tagsByCategory = tagNodes.Where(tag => tag != null && tag.Parent != null)
+                                .GroupBy(tag => tag.Parent.Key)
+                                .Select(g => new { Category = g.First().Parent, Tags = g.ToList() })
+                                .ToList();
+
+                            <div class="tags">
+                                <div class="tagHead">Tags</div>
+                                <div class="theTags">
+                                    @foreach (var categoryGroup in tagsByCategory)
+                                    {
+                                        <div class="theTags__group">
+                                            <span class="typeTag">@(categoryGroup.Category?.Value<string>("categoryTitle") ?? categoryGroup.Category?.Name)</span>
+                                            @foreach (var tag in categoryGroup.Tags)
+                                            {
+                                                <span class="theTags__chip" data-tag-key="@tag.Key">@(tag.Value<string>("tagName") ?? tag.Name)</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
                     </div>
 
-                    @if (!string.IsNullOrWhiteSpace(priceDisplay))
-                    {
-                        <dl class="listing-item-price">
-                            <dt>Price:</dt>
-                            <dd>$@priceDisplay</dd>
-                        </dl>
-                    }
-
-                    <ul class="listing-item-btns ltu-listing-actions">
-                        <li class="listing-item-btn">
-                            <a class="@primaryActionClass" href="@(isPaid && !isPurchased ? $"/billing/checkout?contentKey={p.Key}&returnUrl={Uri.EscapeDataString(p.Url() ?? "/protocols")}" : p.Url())">@(isPurchased ? "Open" : (isPaid ? "Buy Now" : "View Protocol"))</a>
-                        </li>
-                        @if (isPaid && !isPurchased)
-                        {
-                            <li class="listing-item-btn">
-                                <form method="post" action="/cart/add">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="contentKey" value="@p.Key" />
-                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                    <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Add to Cart</button>
-                                </form>
-                            </li>
-                        }
-                    </ul>
-
-                    @if (tagNodes != null && tagNodes.Any())
-                    {
-                        var tagsByCategory = tagNodes
-                            .Where(tag => tag != null && tag.Parent != null)
-                            .GroupBy(tag => tag.Parent.Key)
-                            .Select(g => new
+                    <aside class="ltu-resource-card__meta">
+                        <div class="ltu-resource-detail__meta">
+                            @if (!string.IsNullOrWhiteSpace(priceDisplay))
                             {
-                                CategoryKey = g.Key,
-                                Category = g.First().Parent,
-                                Tags = g.ToList()
-                            })
-                            .ToList();
-
-                        <div class="tags">
-                            <div class="tagHead">Tags:</div>
-                            <div class="theTags">
-                                @{
-                                    var isFirst = true;
-                                    foreach (var categoryGroup in tagsByCategory)
-                                    {
-                                        var category = categoryGroup.Category;
-                                        var tagsInCategory = categoryGroup.Tags;
-
-                                        if (!isFirst)
-                                        {
-                                            @:,
-                                        }
-                                        isFirst = false;
-
-                                        var categoryTitle = category?.Value<string>("categoryTitle") ?? category?.Name ?? "";
-                                        <span class="typeTag">@categoryTitle</span>
-                                        @:,
-
-                                        var tagCount = tagsInCategory.Count;
-                                        for (int i = 0; i < tagCount; i++)
-                                        {
-                                            var tag = tagsInCategory[i];
-                                            var tagName = tag.Value<string>("tagName") ?? tag.Name;
-
-                                            <span data-tag-key="@tag.Key">@tagName</span>
-
-                                            if (i < tagCount - 1)
-                                            {
-                                                @:,
-                                            }
-                                        }
-                                    }
-                                }
-                            </div>
+                                <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Price</span><span class="ltu-resource-detail__meta-value">$@priceDisplay</span></div>
+                            }
                         </div>
-                    }
+
+                        <ul class="listing-item-btns ltu-listing-actions">
+                            <li class="listing-item-btn">
+                                <a class="@primaryActionClass" href="@(isPaid && !isPurchased ? $"/billing/checkout?contentKey={p.Key}&returnUrl={Uri.EscapeDataString(p.Url() ?? "/protocols/")}" : p.Url())">@(isPurchased ? "Open" : (isPaid ? "Buy Now" : "View Protocol"))</a>
+                            </li>
+                            @if (isPaid && !isPurchased)
+                            {
+                                <li class="listing-item-btn">
+                                    <form method="post" action="/cart/add">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="contentKey" value="@p.Key" />
+                                        <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                        <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Add to Cart</button>
+                                    </form>
+                                </li>
+                            }
+                        </ul>
+                    </aside>
                 </div>
             }
         }
     </section>
 </div>
-
-<style>
-    /* Protocol listing item spacing */
-    .listing-item.protocol-item {
-        padding: 20px;
-        margin-bottom: 20px;
-        border-bottom: 1px solid #ddd;
-    }
-
-    .listing-item-btns {
-        margin-top: 15px;
-        margin-bottom: 15px;
-        list-style: none;
-        padding: 0;
-    }
-
-    .listing-item-btn form {
-        display: inline-block;
-    }
-
-    /* Tags section styling */
-    .tags {
-        display: flex;
-        flex-direction: row;
-        margin-top: 15px;
-        padding-top: 15px;
-        border-top: 1px solid #eee;
-    }
-
-    .tagHead {
-        font-weight: bold;
-        margin-right: 10px;
-        white-space: nowrap;
-    }
-
-    .theTags {
-        flex: 1;
-        line-height: 1.6;
-    }
-
-    .theTags .typeTag {
-        font-weight: bold;
-    }
-
-    @@media (max-width: 768px) {
-        .listing-item.protocol-item {
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-
-        .tags {
-            flex-direction: column;
-        }
-
-        .tagHead {
-            margin-bottom: 5px;
-        }
-    }
-
-    @@media (max-width: 480px) {
-        .listing-item.protocol-item {
-            padding: 10px;
-            margin-bottom: 10px;
-        }
-    }
-
-    .purchase-badge,
-    .ltu-listing-badge {
-        display: inline-flex;
-        align-items: center;
-        margin-left: 10px;
-        padding: 5px 10px;
-        border-radius: 999px;
-        background: rgba(0, 103, 56, 0.10);
-        color: #006738;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: .08em;
-        line-height: 1;
-        text-transform: uppercase;
-        vertical-align: middle;
-    }
-</style>

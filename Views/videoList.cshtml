@@ -1,6 +1,3 @@
-@using System.Text.RegularExpressions
-@using Umbraco.Cms.Web.Common.PublishedModels;
-@using Umbraco.Extensions
 @using Umbraco.Cms.Core.Models.PublishedContent
 @using LTU_U15.Services.Commerce
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
@@ -8,247 +5,120 @@
 @{
     Layout = "master.cshtml";
     var purchasedKeys = await PurchaseService.GetCurrentMemberPurchasedKeysAsync();
+    var allVideos = Model!.Children().Where(x => x.IsPublished() && x.ContentType.Alias == "video").OrderByDescending(x => x.Value<DateTime?>("date") ?? DateTime.MinValue).ThenBy(x => x.Name).ToList();
 
-    // Pick up children of this "Video List" page
-    var allVideos = Model!.Children()
-        .Where(x => x.IsPublished()
-            && x.ContentType.Alias == "video")
-        .OrderByDescending(x => x.Value<DateTime?>("date") ?? DateTime.MinValue)
-        .ThenBy(x => x.Name)
-        .ToList();
-
-    var total = allVideos.Count;
-
-    string DisplayDate(IPublishedContent c)
-        => c.Value<DateTime?>("date")?.ToString("MM/dd/yyyy") ?? "";
-
-    string DisplayLength(IPublishedContent c)
-        => (c.Value<string>("length") ?? "").Trim();
-
-    string Summary(IPublishedContent c)
-    {
-        var html = c?.Value<string>("description") ?? "";
-        return html.Trim();
-    }
+    string DisplayDate(IPublishedContent c) => c.Value<DateTime?>("date")?.ToString("MM/dd/yyyy") ?? string.Empty;
+    string DisplayLength(IPublishedContent c) => (c.Value<string>("length") ?? string.Empty).Trim();
+    string Summary(IPublishedContent c) => (c?.Value<string>("description") ?? string.Empty).Trim();
 }
 
-@await Html.PartialAsync("filterPanel", (Items: (IEnumerable<IPublishedContent>)allVideos, Total: total, ItemSelector: "video-item"))
+@await Html.PartialAsync("filterPanel", (Items: (IEnumerable<IPublishedContent>)allVideos, Total: allVideos.Count, ItemSelector: "video-item"))
 
-<div id="content_0_controls_1_pnlContentWrapper" class="content-wrapper content-videos content-has-breadcrumb">
-
+<div class="content-wrapper content-videos content-has-breadcrumb">
     <nav class="breadcrumb-nav">
         <a title="Home" href="/">Home</a>
-        <span>Videos</span>
+        <span>@Model.Name</span>
     </nav>
 
     <header class="content-header content-header-has-icon">
-        <div class="content-header-icon">
-            <img src="/images/icon_videos.png?h=111&amp;la=en&amp;w=121" alt="Videos" width="121" height="111">
-        </div>
-        <h1 class="content-header-h1">Videos</h1>
-        <div class="content-header-copy">
-            Below are some of the featured videos that we've handpicked to help broaden your knowledgebase on laser and light therapy.
+        <div class="content-header-icon"><img src="/images/icon_videos.png" alt="Videos"></div>
+        <div>
+            <h1 class="content-header-h1">@Model.Name</h1>
+            <div class="content-header-copy">Video education now lives in the same premium LTU flow as webinars, protocols, and research, with purchase and re-entry handled by your member profile.</div>
         </div>
     </header>
 
     <section class="listing">
         @if (!allVideos.Any())
         {
-            <div class="listing-item">
-                <h2 class="listing-item-h2">No videos found</h2>
-                <div class="listing-item-description">
-                    There aren't any videos to show.
-                </div>
-            </div>
+            <div class="listing-item"><div class="ltu-empty-state">No videos found.</div></div>
         }
         else
         {
             foreach (var v in allVideos)
             {
                 var title = v.Value<string>("title")?.Trim();
-
                 var tagNodes = v.Value<IEnumerable<IPublishedContent>>("tags");
                 var isPaid = PurchaseService.IsPaidContent(v);
                 var isPurchased = isPaid && purchasedKeys.Contains(v.Key);
                 var price = PurchaseService.GetPrice(v);
-                var primaryActionClass = isPurchased
-                    ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide"
-                    : isPaid
-                        ? "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide"
-                        : "ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide";
-
-                var tagKeys = tagNodes != null && tagNodes.Any()
-                    ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString()))
-                    : "";
+                var primaryActionClass = isPurchased ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide" : isPaid ? "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide" : "ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide";
+                var tagKeys = tagNodes != null && tagNodes.Any() ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString())) : string.Empty;
 
                 <div class="listing-item video-item" data-tags="@tagKeys" data-video-key="@v.Key">
-                    <h2 class="listing-item-h2">
-                        @((string.IsNullOrWhiteSpace(title) ? v.Name : title))
-                        @if (isPurchased)
-                        {
-                            <span class="purchase-badge ltu-listing-badge">Purchased</span>
-                        }
-                    </h2>
+                    <div class="ltu-resource-card__main">
+                        <p class="ltu-resource-card__eyebrow">Video</p>
+                        <h2 class="listing-item-h2">
+                            @((string.IsNullOrWhiteSpace(title) ? v.Name : title))
+                            @if (isPurchased)
+                            {
+                                <span class="purchase-badge ltu-listing-badge">Purchased</span>
+                            }
+                        </h2>
+                        <div class="listing-item-description">@Html.Raw(Summary(v))</div>
 
-                    <div class="listing-item-description">
-                        @Html.Raw(Summary(v) ?? "")
+                        @if (tagNodes != null && tagNodes.Any())
+                        {
+                            var tagsByCategory = tagNodes.Where(tag => tag != null && tag.Parent != null)
+                                .GroupBy(tag => tag.Parent.Key)
+                                .Select(g => new { Category = g.First().Parent, Tags = g.OrderBy(t => t.SortOrder).ToList() })
+                                .OrderBy(g => g.Category?.Parent?.SortOrder ?? 0)
+                                .ThenBy(g => g.Category?.SortOrder ?? 0)
+                                .ToList();
+
+                            <div class="tags">
+                                <div class="tagHead">Tags</div>
+                                <div class="theTags">
+                                    @foreach (var categoryGroup in tagsByCategory)
+                                    {
+                                        <div class="theTags__group">
+                                            <span class="typeTag">@(categoryGroup.Category?.Value<string>("categoryTitle") ?? categoryGroup.Category?.Name)</span>
+                                            @foreach (var tag in categoryGroup.Tags)
+                                            {
+                                                <span class="theTags__chip" data-tag-key="@tag.Key">@(tag.Value<string>("tagName") ?? tag.Name)</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
                     </div>
 
-                    <dl class="listing-item-date">
-                        @if (!string.IsNullOrWhiteSpace(DisplayLength(v)))
-                        {
-                            <dt>Length:</dt>
-                            <dd>@DisplayLength(v)</dd>
-                        }
-                        @if (!string.IsNullOrWhiteSpace(DisplayDate(v)))
-                        {
-                            <dt>Date:</dt>
-                            <dd>@DisplayDate(v)</dd>
-                        }
-                    </dl>
-
-                    @if (price.HasValue)
-                    {
-                        <dl class="listing-item-price">
-                            <dt>Price:</dt>
-                            <dd>$@price.Value.ToString("0.00")</dd>
-                        </dl>
-                    }
-
-                    @if (tagNodes != null && tagNodes.Any())
-                    {
-                        var tagsByCategory = tagNodes
-                            .Where(tag => tag != null && tag.Parent != null)
-                            .GroupBy(tag => tag.Parent.Key)
-                            .Select(g => new
+                    <aside class="ltu-resource-card__meta">
+                        <div class="ltu-resource-detail__meta">
+                            @if (!string.IsNullOrWhiteSpace(DisplayLength(v)))
                             {
-                                CategoryKey = g.Key,
-                                Category = g.First().Parent,
-                                Tags = g.OrderBy(t => t.SortOrder).ToList()
-                            })
-                            .OrderBy(g => g.Category?.Parent?.SortOrder ?? 0)
-                            .ThenBy(g => g.Category?.SortOrder ?? 0)
-                            .ToList();
-
-                        <div class="tags">
-                            <div class="tagHead">Tags:</div>
-                            <div class="theTags">
-                                @{
-                                    var isFirst = true;
-                                    foreach (var categoryGroup in tagsByCategory)
-                                    {
-                                        var category = categoryGroup.Category;
-                                        var tagsInCategory = categoryGroup.Tags;
-
-                                        if (!isFirst)
-                                        {
-                                            @:,
-                                        }
-                                        isFirst = false;
-
-                                        var categoryTitle = category?.Value<string>("categoryTitle") ?? category?.Name ?? "";
-                                        <span class="typeTag">@categoryTitle</span>
-                                        @:,
-
-                                        var tagCount = tagsInCategory.Count;
-                                        for (int i = 0; i < tagCount; i++)
-                                        {
-                                            var tag = tagsInCategory[i];
-                                            var tagName = tag.Value<string>("tagName") ?? tag.Name;
-
-                                            <span data-tag-key="@tag.Key">@tagName</span>
-
-                                            if (i < tagCount - 1)
-                                            {
-                                                @:,
-                                            }
-                                        }
-                                    }
-                                }
-                            </div>
+                                <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Length</span><span class="ltu-resource-detail__meta-value">@DisplayLength(v)</span></div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(DisplayDate(v)))
+                            {
+                                <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Date</span><span class="ltu-resource-detail__meta-value">@DisplayDate(v)</span></div>
+                            }
+                            @if (price.HasValue)
+                            {
+                                <div class="ltu-resource-detail__meta-row"><span class="ltu-resource-detail__meta-label">Price</span><span class="ltu-resource-detail__meta-value">$@price.Value.ToString("0.00")</span></div>
+                            }
                         </div>
-                    }
 
-                    <ul class="listing-item-btns ltu-listing-actions">
-                        <li class="listing-item-btn">
-                            <a class="@primaryActionClass" href="@(isPaid && !isPurchased ? $"/billing/checkout?contentKey={v.Key}&returnUrl={Uri.EscapeDataString(v.Url() ?? "/videos")}" : v.Url())">@(isPurchased ? "Open" : (isPaid ? "Buy Now" : "View Video"))</a>
-                        </li>
-                        @if (isPaid && !isPurchased)
-                        {
+                        <ul class="listing-item-btns ltu-listing-actions">
                             <li class="listing-item-btn">
-                                <form method="post" action="/cart/add">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="contentKey" value="@v.Key" />
-                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                    <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Add to Cart</button>
-                                </form>
+                                <a class="@primaryActionClass" href="@(isPaid && !isPurchased ? $"/billing/checkout?contentKey={v.Key}&returnUrl={Uri.EscapeDataString(v.Url() ?? "/videos/")}" : v.Url())">@(isPurchased ? "Open" : (isPaid ? "Buy Now" : "View Video"))</a>
                             </li>
-                        }
-                    </ul>
+                            @if (isPaid && !isPurchased)
+                            {
+                                <li class="listing-item-btn">
+                                    <form method="post" action="/cart/add">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="contentKey" value="@v.Key" />
+                                        <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                        <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Add to Cart</button>
+                                    </form>
+                                </li>
+                            }
+                        </ul>
+                    </aside>
                 </div>
             }
         }
     </section>
-    <article class="content-article"></article>
 </div>
-
-<style>
-    /* Video listing styles */
-    .tags {
-        display: flex;
-        flex-direction: row;
-        margin-top: 15px;
-        padding-top: 15px;
-        border-top: 1px solid #eee;
-    }
-
-    .tagHead {
-        font-weight: bold;
-        margin-right: 10px;
-        white-space: nowrap;
-    }
-
-    .theTags {
-        flex: 1;
-        line-height: 1.6;
-    }
-
-    .theTags .typeTag {
-        font-weight: bold;
-    }
-
-    @@media (max-width: 768px) {
-        .tags {
-            flex-direction: column;
-        }
-
-        .tagHead {
-            margin-bottom: 5px;
-        }
-    }
-
-    /* Highlighted tag in video listing */
-    .video-item .theTags span.highlight {
-        background-color: #ffeb3b;
-        padding: 2px 4px;
-        border-radius: 3px;
-        font-weight: bold;
-    }
-
-    .purchase-badge,
-    .ltu-listing-badge {
-        display: inline-flex;
-        align-items: center;
-        margin-left: 10px;
-        padding: 5px 10px;
-        border-radius: 999px;
-        background: rgba(0, 103, 56, 0.10);
-        color: #006738;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: .08em;
-        line-height: 1;
-        text-transform: uppercase;
-        vertical-align: middle;
-    }
-</style>

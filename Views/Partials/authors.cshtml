@@ -21,39 +21,36 @@
     var totalItemCount = allAuthors.Count();
 }
 
-<div class="container">
-    <div class="row">
-        <div class="col-lg-8 col-md-10 mx-auto">
-            <div class="container-fluid">
-                <div class="row">
-                    @foreach (var author in pageOfAuthors)
+<section class="content-wrapper content-article">
+    <div class="ltu-author-grid">
+        @foreach (var author in pageOfAuthors)
+        {
+            var mainImage = author.Value<IPublishedContent>("mainImage");
+            var metaDescription = author.Value<string>("metaDescription");
+            <article class="ltu-author-card">
+                @if (mainImage != null)
+                {
+                    <a class="ltu-author-card__media" href="@author.Url()">
+                        <img src="@mainImage.Url()" alt="@author.Name" />
+                    </a>
+                }
+                <div class="ltu-author-card__body">
+                    <p class="ltu-author-card__eyebrow">Contributor</p>
+                    <h2 class="ltu-author-card__title">@author.Name</h2>
+                    @if (!string.IsNullOrWhiteSpace(metaDescription))
                     {
-                        var mainImage = author.Value<IPublishedContent>("mainImage");
-                        var metaDescription = author.Value<string>("metaDescription");
-                        <div class="col-4 mx-auto">
-                            <div class="card">
-                                <header>
-                                    <img src="@(mainImage?.Url())" alt="@author.Name" class="w-100" />
-                                </header>
-                                <div class="card-body">
-                                    <div class="content-left text-start my-auto py-4">
-                                        <h2 class="card-title">@author.Name</h2>
-                                        <p class="card-description">@metaDescription</p>
-                                        <a href="@author.Url()" class="text-primary">
-                                            @Umbraco.GetDictionaryValue("Author.ReadMore")
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <p class="ltu-author-card__copy">@metaDescription</p>
                     }
+                    <a class="ltu-flow-btn ltu-flow-btn--ghost" href="@author.Url()">@Umbraco.GetDictionaryValue("Author.ReadMore")</a>
                 </div>
-            </div>
-
-            @if (isAuthorListPage)
-            {
-                @await Component.InvokeAsync("Pagination", new { totalItems = totalItemCount, url = Model.Url(), pageNumber = pageNumber, pageSize = pageSize })
-            }
-        </div>
+            </article>
+        }
     </div>
-</div>
+
+    @if (isAuthorListPage)
+    {
+        <div class="ltu-author-pagination">
+            @await Component.InvokeAsync("Pagination", new { totalItems = totalItemCount, url = Model.Url(), pageNumber = pageNumber, pageSize = pageSize })
+        </div>
+    }
+</section>

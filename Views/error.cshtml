@@ -14,12 +14,6 @@
 
 @await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, title, subtitle, mainImage))
 
-<article>
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-8 col-md-10 mx-auto">
-                @Html.GetBlockListHtml(contentRows)
-            </div>
-        </div>
-    </div>
+<article class="content-wrapper content-article ltu-rich-content">
+    @Html.GetBlockListHtml(contentRows)
 </article>

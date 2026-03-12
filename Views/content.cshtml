@@ -20,6 +20,7 @@
     var returnUrlQuery = Context?.Request?.Query["r"].ToString();
     var currentMember = await MemberManager.GetCurrentMemberAsync();
     var isMemberLoggedIn = currentMember != null;
+    var articleClass = isMembershipPage ? "content-article content-article--membership" : "content-article ltu-rich-content";
 
     var registerModel = new RegisterMemberViewModel { ReturnUrl = returnUrlQuery };
     if (TempData.TryGetValue("RegistrationModel", out var registrationModelRaw) && registrationModelRaw is string registrationModelJson)
@@ -56,7 +57,7 @@
         <h1 class="content-header-h1">@pageTitle</h1>
     </header>
 
-    <article class="content-article">
+    <article class="@articleClass">
         @if (isMembershipPage && pageSlug == "log-in")
         {
             if (isMemberLoggedIn)
