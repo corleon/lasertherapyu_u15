@@ -198,7 +198,7 @@ public sealed class BillingController : Controller
 
             if (data.PurchaseType == StripeCheckoutPurchaseType.Subscription)
             {
-                if (!data.SubscriptionDurationMonths.HasValue || !data.SubscriptionPrice.HasValue)
+                if ((!data.SubscriptionDurationMonths.HasValue && !data.SubscriptionDurationMinutes.HasValue) || !data.SubscriptionPrice.HasValue)
                 {
                     _logger.LogWarning("Stripe subscription event is missing duration/price metadata for member {MemberKey}", data.MemberKey);
                     return Ok();
@@ -208,7 +208,8 @@ public sealed class BillingController : Controller
                 {
                     PlanCode = data.SubscriptionPlanCode ?? "subscription",
                     PlanName = data.SubscriptionPlanName ?? "Subscription",
-                    DurationMonths = data.SubscriptionDurationMonths.Value,
+                    DurationMonths = data.SubscriptionDurationMonths ?? 0,
+                    DurationMinutes = data.SubscriptionDurationMinutes,
                     Price = data.SubscriptionPrice.Value,
                     PaymentIntentId = data.PaymentIntentId
                 });
@@ -220,11 +221,12 @@ public sealed class BillingController : Controller
                 }
 
                 _logger.LogInformation(
-                    "Stripe subscription activated. PaymentIntentId: {PaymentIntentId}; MemberKey: {MemberKey}; Plan: {Plan}; DurationMonths: {DurationMonths}; Price: {Price}; PaymentStatus: {PaymentStatus}",
+                    "Stripe subscription activated. PaymentIntentId: {PaymentIntentId}; MemberKey: {MemberKey}; Plan: {Plan}; DurationMonths: {DurationMonths}; DurationMinutes: {DurationMinutes}; Price: {Price}; PaymentStatus: {PaymentStatus}",
                     data.PaymentIntentId,
                     data.MemberKey,
                     data.SubscriptionPlanName ?? data.SubscriptionPlanCode,
                     data.SubscriptionDurationMonths,
+                    data.SubscriptionDurationMinutes,
                     data.SubscriptionPrice,
                     data.PaymentStatus);
 
@@ -234,7 +236,7 @@ public sealed class BillingController : Controller
                     await _membershipNotificationService.SendSubscriptionActivatedAsync(
                         data.MemberKey,
                         data.SubscriptionPlanName ?? "Subscription",
-                        data.SubscriptionDurationMonths.Value,
+                        BuildSubscriptionDurationLabel(data.SubscriptionDurationMonths, data.SubscriptionDurationMinutes),
                         data.SubscriptionPrice.Value,
                         data.PaymentIntentId,
                         baseUrl);
@@ -359,5 +361,20 @@ public sealed class BillingController : Controller
     private void ForgetPendingCheckoutItems()
     {
         Response.Cookies.Delete(PendingCheckoutCookieName);
+    }
+
+    private static string BuildSubscriptionDurationLabel(int? durationMonths, int? durationMinutes)
+    {
+        if (durationMinutes.HasValue && durationMinutes.Value > 0)
+        {
+            return $"{durationMinutes.Value} minute(s)";
+        }
+
+        if (durationMonths.HasValue && durationMonths.Value > 0)
+        {
+            return $"{durationMonths.Value} month(s)";
+        }
+
+        return "Custom";
     }
 }

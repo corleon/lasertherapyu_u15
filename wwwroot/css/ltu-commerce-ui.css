@@ -298,6 +298,10 @@
     font-family: 'Source Sans Pro', sans-serif;
     font-size: 1em;
     line-height: 1.2;
+    pointer-events: auto;
+    -webkit-user-select: text;
+    user-select: text;
+    touch-action: manipulation;
     transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
 }
 
@@ -709,6 +713,11 @@ textarea.ltu-auth-input {
     .ltu-auth-card,
     .ltu-billing-card {
         padding: 18px;
+    }
+
+    .ltu-auth-input,
+    .ltu-auth-select {
+        font-size: 16px;
     }
 
     .ltu-auth-grid--two {

@@ -71,13 +71,13 @@
 
                 var tagNodes = w.Value<IEnumerable<IPublishedContent>>("tags");
                 var isPaid = PurchaseService.IsPaidContent(w);
-                var isPurchased = isPaid && (hasActiveSubscription || purchasedKeys.Contains(w.Key));
+                var isPurchased = isPaid && purchasedKeys.Contains(w.Key);
+                var isSubscribed = isPaid && !isPurchased && hasActiveSubscription;
+                var hasAccess = isPurchased || isSubscribed;
                 var price = PurchaseService.GetPrice(w);
-                var primaryActionClass = isPurchased
+                var primaryActionClass = hasAccess
                     ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide"
-                    : isPaid
-                        ? "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide"
-                        : "ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide";
+                    : "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide";
 
                 var tagKeys = tagNodes != null && tagNodes.Any()
                     ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString()))
@@ -89,6 +89,10 @@
                         @if (isPurchased)
                         {
                             <span class="purchase-badge ltu-listing-badge">Purchased</span>
+                        }
+                        else if (isSubscribed)
+                        {
+                            <span class="purchase-badge ltu-listing-badge ltu-listing-badge--subscribed">Subscribed</span>
                         }
                     </h2>
 
@@ -167,9 +171,9 @@
 
                     <ul class="listing-item-btns ltu-listing-actions">
                         <li class="listing-item-btn">
-                            <a class="@primaryActionClass" href="@(isPaid && !isPurchased ? $"/billing/checkout?contentKey={w.Key}&returnUrl={Uri.EscapeDataString(w.Url() ?? "/webinars")}" : w.Url())">@(isPurchased ? "Open" : (isPaid ? "Buy Now" : "Learn More"))</a>
+                            <a class="@primaryActionClass" href="@(isPaid && !hasAccess ? $"/billing/checkout?contentKey={w.Key}&returnUrl={Uri.EscapeDataString(w.Url() ?? "/webinars")}" : w.Url())">@(hasAccess ? "Open" : (isPaid ? "Buy Now" : "Learn More"))</a>
                         </li>
-                        @if (isPaid && !isPurchased)
+                        @if (isPaid && !hasAccess)
                         {
                             <li class="listing-item-btn">
                                 <form method="post" action="/cart/add">
@@ -249,5 +253,10 @@
         line-height: 1;
         text-transform: uppercase;
         vertical-align: middle;
+    }
+
+    .ltu-listing-badge--subscribed {
+        background: rgba(12, 92, 151, 0.12);
+        color: #0c5c97;
     }
 </style>

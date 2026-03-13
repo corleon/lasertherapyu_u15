@@ -139,6 +139,9 @@ public sealed class SiteSettingsService : ISiteSettingsService
         DefaultVideoPrice = source.DefaultVideoPrice,
         DefaultResearchPrice = source.DefaultResearchPrice,
         ThreeMonthSubscriptionPrice = source.ThreeMonthSubscriptionPrice,
-        TwelveMonthSubscriptionPrice = source.TwelveMonthSubscriptionPrice
+        TwelveMonthSubscriptionPrice = source.TwelveMonthSubscriptionPrice,
+        EnableTenMinuteTestSubscription = source.EnableTenMinuteTestSubscription,
+        TenMinuteTestSubscriptionPrice = source.TenMinuteTestSubscriptionPrice,
+        TenMinuteTestSubscriptionDurationMinutes = source.TenMinuteTestSubscriptionDurationMinutes
     };
 }

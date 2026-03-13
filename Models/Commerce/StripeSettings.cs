@@ -10,4 +10,7 @@ public sealed class StripeSettings
     public decimal DefaultResearchPrice { get; set; } = 29.95m;
     public decimal ThreeMonthSubscriptionPrice { get; set; } = 199.00m;
     public decimal TwelveMonthSubscriptionPrice { get; set; } = 499.00m;
+    public bool EnableTenMinuteTestSubscription { get; set; } = false;
+    public decimal TenMinuteTestSubscriptionPrice { get; set; } = 1.00m;
+    public int TenMinuteTestSubscriptionDurationMinutes { get; set; } = 10;
 }

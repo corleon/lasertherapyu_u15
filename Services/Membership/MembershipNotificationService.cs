@@ -149,7 +149,7 @@ public sealed class MembershipNotificationService : IMembershipNotificationServi
         }
     }
 
-    public async Task SendSubscriptionActivatedAsync(Guid memberKey, string planName, int durationMonths, decimal price, string? paymentIntentId, string baseUrl, CancellationToken cancellationToken = default)
+    public async Task SendSubscriptionActivatedAsync(Guid memberKey, string planName, string durationLabel, decimal price, string? paymentIntentId, string baseUrl, CancellationToken cancellationToken = default)
     {
         var member = _memberService.GetByKey(memberKey);
         if (member == null || string.IsNullOrWhiteSpace(member.Email))
@@ -179,7 +179,7 @@ public sealed class MembershipNotificationService : IMembershipNotificationServi
             BuildDefinitionList(new Dictionary<string, string?>
             {
                 ["Plan"] = planName,
-                ["Duration"] = $"{durationMonths} month(s)",
+                ["Duration"] = durationLabel,
                 ["Price"] = $"${price:0.00}",
                 ["Payment ID"] = paymentIntentId
             }) +
@@ -197,13 +197,68 @@ public sealed class MembershipNotificationService : IMembershipNotificationServi
                     ["Member"] = $"{member.Name} ({member.Username})",
                     ["Email"] = member.Email,
                     ["Plan"] = planName,
-                    ["Duration"] = $"{durationMonths} month(s)",
+                    ["Duration"] = durationLabel,
                     ["Price"] = $"${price:0.00}",
                     ["Payment ID"] = paymentIntentId
                 }) +
                 ActionButton(profileUrl, "Open Member Cabinet"));
 
             await _emailService.SendHtmlAsync(settings.AdminNotificationEmail, $"{SiteName}: subscription activated", adminBody);
+        }
+    }
+
+    public async Task SendSubscriptionExpiringSoonAsync(Guid memberKey, string planName, DateTime expiresAtUtc, int daysRemaining, CancellationToken cancellationToken = default)
+    {
+        var member = _memberService.GetByKey(memberKey);
+        if (member == null || string.IsNullOrWhiteSpace(member.Email))
+        {
+            _logger.LogWarning("Subscription-expiring notification skipped because member {MemberKey} could not be loaded.", memberKey);
+            return;
+        }
+
+        var settings = await _siteSettingsService.GetAsync(cancellationToken);
+
+        var greetingName = string.Join(" ", new[]
+        {
+            member.GetValue<string>("firstName"),
+            member.GetValue<string>("lastName")
+        }.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
+
+        if (string.IsNullOrWhiteSpace(greetingName))
+        {
+            greetingName = member.Username;
+        }
+
+        var expiresOn = expiresAtUtc.ToLocalTime().ToString("M/d/yyyy");
+        var userBody = WrapEmail(
+            "Subscription expiring soon",
+            $"<p>Hello {Html(greetingName)},</p>" +
+            "<p>Your LTU subscription is close to expiration.</p>" +
+            BuildDefinitionList(new Dictionary<string, string?>
+            {
+                ["Plan"] = planName,
+                ["Days Remaining"] = daysRemaining.ToString(),
+                ["Expires On"] = expiresOn
+            }) +
+            "<p>Please renew your plan to keep access to all paid content.</p>");
+
+        await _emailService.SendHtmlAsync(member.Email, $"{SiteName}: subscription expiring soon", userBody);
+
+        if (!string.IsNullOrWhiteSpace(settings.AdminNotificationEmail))
+        {
+            var adminBody = WrapEmail(
+                "Member subscription expiring soon",
+                "<p>A member subscription is close to expiration.</p>" +
+                BuildDefinitionList(new Dictionary<string, string?>
+                {
+                    ["Member"] = $"{member.Name} ({member.Username})",
+                    ["Email"] = member.Email,
+                    ["Plan"] = planName,
+                    ["Days Remaining"] = daysRemaining.ToString(),
+                    ["Expires On"] = expiresOn
+                }));
+
+            await _emailService.SendHtmlAsync(settings.AdminNotificationEmail, $"{SiteName}: subscription expiring soon", adminBody);
         }
     }
 

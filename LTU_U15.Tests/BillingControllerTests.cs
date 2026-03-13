@@ -283,7 +283,7 @@ public class BillingControllerTests
             .ReturnsAsync(true);
 
         var notifications = new Mock<IMembershipNotificationService>();
-        notifications.Setup(x => x.SendSubscriptionActivatedAsync(memberKey, "Twelve Month Subscription", 12, 499.00m, "pi_sub_123", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        notifications.Setup(x => x.SendSubscriptionActivatedAsync(memberKey, "Twelve Month Subscription", "12 month(s)", 499.00m, "pi_sub_123", It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var sut = CreateController(purchaseService: purchase, stripeGateway: stripe, notificationService: notifications);
@@ -300,7 +300,54 @@ public class BillingControllerTests
             r.DurationMonths == 12 &&
             r.Price == 499.00m &&
             r.PaymentIntentId == "pi_sub_123"), It.IsAny<CancellationToken>()), Times.Once);
-        notifications.Verify(x => x.SendSubscriptionActivatedAsync(memberKey, "Twelve Month Subscription", 12, 499.00m, "pi_sub_123", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        notifications.Verify(x => x.SendSubscriptionActivatedAsync(memberKey, "Twelve Month Subscription", "12 month(s)", 499.00m, "pi_sub_123", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Webhook_WhenMinuteSubscriptionPaid_ActivatesSubscriptionWithMinuteDuration()
+    {
+        var purchase = new Mock<IContentPurchaseService>();
+        var memberKey = Guid.NewGuid();
+
+        var stripe = new Mock<IStripePaymentGateway>();
+        stripe.Setup(x => x.ParseCheckoutCompletedEvent(It.IsAny<string>()))
+            .Returns(new StripeCheckoutCompletedEvent
+            {
+                MemberKey = memberKey,
+                PurchaseType = StripeCheckoutPurchaseType.Subscription,
+                SubscriptionPlanCode = "med-10m-test",
+                SubscriptionPlanName = "Ten Minute Test Subscription",
+                SubscriptionDurationMonths = null,
+                SubscriptionDurationMinutes = 10,
+                SubscriptionPrice = 1.00m,
+                PaymentStatus = "succeeded",
+                PaymentIntentId = "pi_sub_10m"
+            });
+
+        purchase
+            .Setup(x => x.ActivateSubscriptionAsync(memberKey, It.IsAny<SubscriptionActivationRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var notifications = new Mock<IMembershipNotificationService>();
+        notifications.Setup(x => x.SendSubscriptionActivatedAsync(memberKey, "Ten Minute Test Subscription", "10 minute(s)", 1.00m, "pi_sub_10m", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = CreateController(purchaseService: purchase, stripeGateway: stripe, notificationService: notifications);
+
+        var payload = "{\"type\":\"payment_intent.succeeded\"}";
+        sut.ControllerContext.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(payload));
+
+        var result = await sut.Webhook();
+
+        Assert.IsType<OkResult>(result);
+        purchase.Verify(x => x.ActivateSubscriptionAsync(memberKey, It.Is<SubscriptionActivationRequest>(r =>
+            r.PlanCode == "med-10m-test" &&
+            r.PlanName == "Ten Minute Test Subscription" &&
+            r.DurationMonths == 0 &&
+            r.DurationMinutes == 10 &&
+            r.Price == 1.00m &&
+            r.PaymentIntentId == "pi_sub_10m"), It.IsAny<CancellationToken>()), Times.Once);
+        notifications.Verify(x => x.SendSubscriptionActivatedAsync(memberKey, "Ten Minute Test Subscription", "10 minute(s)", 1.00m, "pi_sub_10m", It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private static BillingController CreateController(

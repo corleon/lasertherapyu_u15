@@ -81,11 +81,13 @@ public sealed class StripePaymentGateway : IStripePaymentGateway
             options.Metadata["subscriptionPlanCode"] = request.SubscriptionPlanCode ?? string.Empty;
             options.Metadata["subscriptionPlanName"] = request.SubscriptionPlanName ?? string.Empty;
             options.Metadata["subscriptionDurationMonths"] = (request.SubscriptionDurationMonths ?? 0).ToString(CultureInfo.InvariantCulture);
+            options.Metadata["subscriptionDurationMinutes"] = (request.SubscriptionDurationMinutes ?? 0).ToString(CultureInfo.InvariantCulture);
             options.Metadata["subscriptionPrice"] = (request.SubscriptionPrice ?? 0m).ToString(CultureInfo.InvariantCulture);
 
             options.PaymentIntentData.Metadata["subscriptionPlanCode"] = request.SubscriptionPlanCode ?? string.Empty;
             options.PaymentIntentData.Metadata["subscriptionPlanName"] = request.SubscriptionPlanName ?? string.Empty;
             options.PaymentIntentData.Metadata["subscriptionDurationMonths"] = (request.SubscriptionDurationMonths ?? 0).ToString(CultureInfo.InvariantCulture);
+            options.PaymentIntentData.Metadata["subscriptionDurationMinutes"] = (request.SubscriptionDurationMinutes ?? 0).ToString(CultureInfo.InvariantCulture);
             options.PaymentIntentData.Metadata["subscriptionPrice"] = (request.SubscriptionPrice ?? 0m).ToString(CultureInfo.InvariantCulture);
         }
 
@@ -129,9 +131,12 @@ public sealed class StripePaymentGateway : IStripePaymentGateway
             paymentIntent.Metadata.TryGetValue("subscriptionPlanCode", out var planCode);
             paymentIntent.Metadata.TryGetValue("subscriptionPlanName", out var planName);
             paymentIntent.Metadata.TryGetValue("subscriptionDurationMonths", out var durationMonthsRaw);
+            paymentIntent.Metadata.TryGetValue("subscriptionDurationMinutes", out var durationMinutesRaw);
             paymentIntent.Metadata.TryGetValue("subscriptionPrice", out var subscriptionPriceRaw);
 
-            if (!int.TryParse(durationMonthsRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var durationMonths) || durationMonths <= 0)
+            var hasValidMonths = int.TryParse(durationMonthsRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var durationMonths) && durationMonths > 0;
+            var hasValidMinutes = int.TryParse(durationMinutesRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var durationMinutes) && durationMinutes > 0;
+            if (!hasValidMonths && !hasValidMinutes)
             {
                 throw new InvalidOperationException("Stripe payment intent has invalid subscription duration metadata.");
             }
@@ -147,7 +152,8 @@ public sealed class StripePaymentGateway : IStripePaymentGateway
                 PurchaseType = StripeCheckoutPurchaseType.Subscription,
                 SubscriptionPlanCode = string.IsNullOrWhiteSpace(planCode) ? null : planCode,
                 SubscriptionPlanName = string.IsNullOrWhiteSpace(planName) ? "Subscription" : planName,
-                SubscriptionDurationMonths = durationMonths,
+                SubscriptionDurationMonths = hasValidMonths ? durationMonths : null,
+                SubscriptionDurationMinutes = hasValidMinutes ? durationMinutes : null,
                 SubscriptionPrice = subscriptionPrice,
                 PaymentStatus = paymentIntent.Status ?? string.Empty,
                 PaymentIntentId = paymentIntent.Id

@@ -27,11 +27,11 @@
         <div class="ltu-auth-grid" style="margin-top:18px;">
             <div class="ltu-auth-field">
                 <label class="ltu-auth-label" asp-for="Username">Username*</label>
-                <input class="ltu-auth-input @(hasServerError ? "membership-invalid" : null)" asp-for="Username" autocomplete="username" />
+                <input class="ltu-auth-input @(hasServerError ? "membership-invalid" : null)" asp-for="Username" type="text" autocomplete="username" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" />
             </div>
             <div class="ltu-auth-field">
                 <label class="ltu-auth-label" asp-for="Password">Password*</label>
-                <input class="ltu-auth-input @(hasServerError ? "membership-invalid" : null)" asp-for="Password" type="password" autocomplete="current-password" />
+                <input class="ltu-auth-input @(hasServerError ? "membership-invalid" : null)" asp-for="Password" type="password" autocomplete="current-password" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" />
             </div>
         </div>
 
@@ -67,6 +67,46 @@
         var username = form.querySelector("[name='Username']");
         var password = form.querySelector("[name='Password']");
         var errorBox = document.getElementById("loginClientError");
+        var isTouchDevice = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+
+        [username, password].forEach(function (field) {
+            if (!field) {
+                return;
+            }
+
+            field.removeAttribute("readonly");
+            field.removeAttribute("disabled");
+
+            if (isTouchDevice) {
+                field.addEventListener("pointerdown", function () {
+                    window.setTimeout(function () {
+                        field.focus();
+                    }, 0);
+                });
+
+                field.addEventListener("touchstart", function () {
+                    window.setTimeout(function () {
+                        field.focus();
+                    }, 0);
+                }, { passive: true });
+            }
+        });
+
+        form.querySelectorAll("label[for]").forEach(function (label) {
+            label.addEventListener("click", function () {
+                var targetId = label.getAttribute("for");
+                if (!targetId) {
+                    return;
+                }
+
+                var target = form.querySelector("#" + targetId);
+                if (target) {
+                    window.setTimeout(function () {
+                        target.focus();
+                    }, 0);
+                }
+            });
+        });
 
         function setError(message) {
             if (!errorBox) {

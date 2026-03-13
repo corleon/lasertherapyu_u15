@@ -4,12 +4,15 @@
     var purchasedItems = await PurchaseService.GetCurrentMemberPurchasedContentAsync();
     var recentlyViewedItems = await PurchaseService.GetCurrentMemberRecentlyViewedContentAsync();
     var subscriptionStatus = await PurchaseService.GetCurrentMemberSubscriptionStatusAsync();
+    var subscriptionHistoryItems = await PurchaseService.GetCurrentMemberSubscriptionHistoryAsync();
     var memberName = User?.Identity?.Name ?? "member";
     const int previewCount = 6;
     var purchasedPreview = purchasedItems.Take(previewCount).ToList();
     var purchasedOverflow = purchasedItems.Skip(previewCount).ToList();
     var recentPreview = recentlyViewedItems.Take(previewCount).ToList();
     var recentOverflow = recentlyViewedItems.Skip(previewCount).ToList();
+    var subscriptionHistoryPreview = subscriptionHistoryItems.Take(previewCount).ToList();
+    var subscriptionHistoryOverflow = subscriptionHistoryItems.Skip(previewCount).ToList();
 }
 
 <section class="ltu-member-hub">
@@ -46,6 +49,17 @@
                 {
                     <span>Valid through @subscriptionStatus.ExpiresAtUtc.Value.ToLocalTime().ToString("M/d/yyyy")</span>
                 }
+                @if (subscriptionStatus.IsExpiringSoon)
+                {
+                    var remaining = !string.IsNullOrWhiteSpace(subscriptionStatus.RemainingLabel)
+                        ? subscriptionStatus.RemainingLabel
+                        : (subscriptionStatus.DaysRemaining.HasValue
+                            ? $"{subscriptionStatus.DaysRemaining.Value} day(s)"
+                            : "soon");
+                    <span class="ltu-member-hub__subscription-warning">
+                        Expires in @remaining. Renew now to avoid access interruption.
+                    </span>
+                }
             </div>
             <a class="ltu-action ltu-action--primary" href="/subscriptions">Extend Plan</a>
         }
@@ -58,6 +72,111 @@
             <a class="ltu-action ltu-action--primary" href="/subscriptions">Subscribe Now</a>
         }
     </div>
+
+    <section class="ltu-member-hub__panel ltu-member-hub__panel--history">
+        <div class="ltu-member-hub__panel-header">
+            <div>
+                <p class="ltu-member-hub__panel-kicker">Membership</p>
+                <h3 class="ltu-member-hub__panel-title">Subscription History</h3>
+            </div>
+            <p class="ltu-member-hub__panel-copy">Track plan activations, expiry dates, and payment references.</p>
+        </div>
+
+        @if (subscriptionHistoryItems.Count == 0)
+        {
+            <div class="ltu-member-hub__empty">
+                <p>You have no subscription history yet.</p>
+            </div>
+        }
+        else
+        {
+            <div class="ltu-member-hub__history-list">
+                @foreach (var item in subscriptionHistoryPreview)
+                {
+                    <article class="ltu-member-hub__history-card">
+                        <div class="ltu-member-hub__history-top">
+                            <div>
+                                <span class="ltu-member-hub__badge @(item.IsActive ? "ltu-member-hub__badge--active" : "ltu-member-hub__badge--muted")">
+                                    @(item.IsActive ? "Active" : "Expired")
+                                </span>
+                                <h4 class="ltu-member-hub__purchase-title">@item.PlanName</h4>
+                            </div>
+                            <span class="ltu-member-hub__history-price">$@item.Price.ToString("0.00")</span>
+                        </div>
+
+                        <dl class="ltu-member-hub__purchase-meta">
+                            <div>
+                                <dt>Activated</dt>
+                                <dd>@item.ActivatedAtUtc.ToLocalTime().ToString("M/d/yyyy")</dd>
+                            </div>
+                            <div>
+                                <dt>Expires</dt>
+                                <dd>@item.ExpiresAtUtc.ToLocalTime().ToString("M/d/yyyy")</dd>
+                            </div>
+                            <div>
+                                <dt>Duration</dt>
+                                <dd>@item.DurationLabel</dd>
+                            </div>
+                            <div class="ltu-member-hub__purchase-meta-full">
+                                <dt>Payment ID</dt>
+                                <dd>@(string.IsNullOrWhiteSpace(item.PaymentIntentId) ? "-" : item.PaymentIntentId)</dd>
+                            </div>
+                        </dl>
+                    </article>
+                }
+            </div>
+
+            @if (subscriptionHistoryOverflow.Count > 0)
+            {
+                <div class="ltu-member-hub__history-list ltu-member-hub__overflow" id="memberSubscriptionHistoryOverflow" hidden>
+                    @foreach (var item in subscriptionHistoryOverflow)
+                    {
+                        <article class="ltu-member-hub__history-card">
+                            <div class="ltu-member-hub__history-top">
+                                <div>
+                                    <span class="ltu-member-hub__badge @(item.IsActive ? "ltu-member-hub__badge--active" : "ltu-member-hub__badge--muted")">
+                                        @(item.IsActive ? "Active" : "Expired")
+                                    </span>
+                                    <h4 class="ltu-member-hub__purchase-title">@item.PlanName</h4>
+                                </div>
+                                <span class="ltu-member-hub__history-price">$@item.Price.ToString("0.00")</span>
+                            </div>
+
+                            <dl class="ltu-member-hub__purchase-meta">
+                                <div>
+                                    <dt>Activated</dt>
+                                    <dd>@item.ActivatedAtUtc.ToLocalTime().ToString("M/d/yyyy")</dd>
+                                </div>
+                                <div>
+                                    <dt>Expires</dt>
+                                    <dd>@item.ExpiresAtUtc.ToLocalTime().ToString("M/d/yyyy")</dd>
+                                </div>
+                                <div>
+                                    <dt>Duration</dt>
+                                    <dd>@item.DurationLabel</dd>
+                                </div>
+                                <div class="ltu-member-hub__purchase-meta-full">
+                                    <dt>Payment ID</dt>
+                                    <dd>@(string.IsNullOrWhiteSpace(item.PaymentIntentId) ? "-" : item.PaymentIntentId)</dd>
+                                </div>
+                            </dl>
+                        </article>
+                    }
+                </div>
+
+                <div class="ltu-member-hub__overflow-toggle-wrap">
+                    <button
+                        type="button"
+                        class="ltu-member-hub__overflow-toggle"
+                        data-target="memberSubscriptionHistoryOverflow"
+                        data-more-label="Show @subscriptionHistoryOverflow.Count more subscriptions"
+                        data-less-label="Show fewer subscriptions">
+                        Show @subscriptionHistoryOverflow.Count more subscriptions
+                    </button>
+                </div>
+            }
+        }
+    </section>
 
     <div class="ltu-member-hub__grid">
         <div class="ltu-member-hub__panel ltu-member-hub__panel--wide">
@@ -370,6 +489,16 @@
         line-height: 1.55;
     }
 
+    .ltu-member-hub__subscription-warning {
+        margin-top: 6px;
+        color: #b42318;
+        font-weight: 700;
+    }
+
+    .ltu-member-hub__panel--history {
+        margin: 0 0 24px 0;
+    }
+
     .ltu-member-hub__grid {
         display: grid;
         grid-template-columns: minmax(0, 1.45fr) minmax(280px, .9fr);
@@ -441,6 +570,11 @@
         gap: 16px;
     }
 
+    .ltu-member-hub__history-list {
+        display: grid;
+        gap: 14px;
+    }
+
     .ltu-member-hub__overflow {
         margin-top: 16px;
     }
@@ -484,12 +618,27 @@
         box-shadow: 0 10px 24px rgba(57, 67, 76, 0.06);
     }
 
+    .ltu-member-hub__history-card {
+        padding: 16px;
+        border: 1px solid #dce3e8;
+        border-left: 5px solid #0f5e93;
+        background: #fff;
+    }
+
     .ltu-member-hub__purchase-top {
         display: flex;
         justify-content: space-between;
         align-items: start;
         gap: 16px;
         margin-bottom: 16px;
+    }
+
+    .ltu-member-hub__history-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        gap: 12px;
+        margin-bottom: 14px;
     }
 
     .ltu-member-hub__badge {
@@ -504,6 +653,24 @@
         font-weight: 700;
         letter-spacing: .08em;
         text-transform: uppercase;
+    }
+
+    .ltu-member-hub__badge--active {
+        background: rgba(0,103,56,.10);
+        color: #006738;
+    }
+
+    .ltu-member-hub__badge--muted {
+        background: rgba(90, 100, 108, .10);
+        color: #5a646c;
+    }
+
+    .ltu-member-hub__history-price {
+        color: #006738;
+        font-family: 'Kameron', serif;
+        font-size: 1.25em;
+        font-weight: 700;
+        white-space: nowrap;
     }
 
     .ltu-member-hub__purchase-title {

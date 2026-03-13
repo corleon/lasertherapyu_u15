@@ -110,6 +110,55 @@ public class SubscriptionsControllerTests
         stripe.Verify(x => x.CreateCheckoutUrlAsync(It.IsAny<StripeCheckoutRequest>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task CreateSession_WhenTenMinuteTestPlanEnabled_CreatesSubscriptionCheckoutWithMinutes()
+    {
+        var purchase = new Mock<IContentPurchaseService>();
+        var memberKey = Guid.NewGuid();
+        purchase.Setup(x => x.GetCurrentMemberCheckoutDetailsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MemberCheckoutDetails
+            {
+                MemberKey = memberKey,
+                Email = "member@example.com"
+            });
+
+        var stripe = new Mock<IStripePaymentGateway>();
+        stripe.Setup(x => x.CreateCheckoutUrlAsync(It.IsAny<StripeCheckoutRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("https://checkout.stripe.test/subscription-test");
+
+        var settings = new Mock<ISiteSettingsService>();
+        settings.Setup(x => x.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new SiteRuntimeSettings
+        {
+            AdminNotificationEmail = "admin@example.com",
+            Email = new MembershipEmailSettings(),
+            Stripe = new StripeSettings
+            {
+                SecretKey = "sk_test_123",
+                Currency = "usd",
+                ThreeMonthSubscriptionPrice = 199.00m,
+                TwelveMonthSubscriptionPrice = 499.00m,
+                EnableTenMinuteTestSubscription = true,
+                TenMinuteTestSubscriptionPrice = 1.00m,
+                TenMinuteTestSubscriptionDurationMinutes = 10
+            }
+        });
+
+        var sut = CreateController(purchaseService: purchase, stripeGateway: stripe, siteSettingsService: settings);
+
+        var result = await sut.CreateSession("med-10m-test", "/members/my-profile/");
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("https://checkout.stripe.test/subscription-test", redirect.Url);
+        stripe.Verify(x => x.CreateCheckoutUrlAsync(It.Is<StripeCheckoutRequest>(r =>
+            r.MemberKey == memberKey &&
+            r.PurchaseType == StripeCheckoutPurchaseType.Subscription &&
+            r.SubscriptionPlanCode == "med-10m-test" &&
+            r.SubscriptionDurationMonths == 0 &&
+            r.SubscriptionDurationMinutes == 10 &&
+            r.SubscriptionPrice == 1.00m &&
+            r.Items.Count == 1), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static SubscriptionsController CreateController(
         Mock<IContentPurchaseService>? purchaseService = null,
         Mock<IStripePaymentGateway>? stripeGateway = null,

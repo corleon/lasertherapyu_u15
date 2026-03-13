@@ -34,29 +34,45 @@
         _ => TempData["MembershipMessage"]?.ToString()
     };
 
+    var plans = new List<SubscriptionPlanViewModel>
+    {
+        new SubscriptionPlanViewModel
+        {
+            PlanCode = "med-3m",
+            PlanName = "Three Month Subscription",
+            DurationMonths = 3,
+            Price = settings.Stripe.ThreeMonthSubscriptionPrice,
+            Description = "Short commitment with full access to all paid webinars, protocols, research, and videos.",
+            CtaLabel = "Start 3-Month Plan"
+        },
+        new SubscriptionPlanViewModel
+        {
+            PlanCode = "med-12m",
+            PlanName = "Twelve Month Subscription",
+            DurationMonths = 12,
+            Price = settings.Stripe.TwelveMonthSubscriptionPrice,
+            Description = "Best value annual access for teams and clinicians who use LTU resources every week.",
+            CtaLabel = "Start 12-Month Plan"
+        }
+    };
+
+    if (settings.Stripe.EnableTenMinuteTestSubscription && settings.Stripe.TenMinuteTestSubscriptionDurationMinutes > 0)
+    {
+        plans.Add(new SubscriptionPlanViewModel
+        {
+            PlanCode = "med-10m-test",
+            PlanName = "Ten Minute Test Subscription",
+            DurationMonths = 0,
+            DurationMinutes = settings.Stripe.TenMinuteTestSubscriptionDurationMinutes,
+            Price = settings.Stripe.TenMinuteTestSubscriptionPrice,
+            Description = "Temporary QA plan for local/staging verification of expiration and access rollback behavior.",
+            CtaLabel = $"Start {settings.Stripe.TenMinuteTestSubscriptionDurationMinutes}-Minute Test"
+        });
+    }
+
     var model = new SubscriptionsPageViewModel
     {
-        Plans = new[]
-        {
-            new SubscriptionPlanViewModel
-            {
-                PlanCode = "med-3m",
-                PlanName = "Three Month Subscription",
-                DurationMonths = 3,
-                Price = settings.Stripe.ThreeMonthSubscriptionPrice,
-                Description = "Short commitment with full access to all paid webinars, protocols, research, and videos.",
-                CtaLabel = "Start 3-Month Plan"
-            },
-            new SubscriptionPlanViewModel
-            {
-                PlanCode = "med-12m",
-                PlanName = "Twelve Month Subscription",
-                DurationMonths = 12,
-                Price = settings.Stripe.TwelveMonthSubscriptionPrice,
-                Description = "Best value annual access for teams and clinicians who use LTU resources every week.",
-                CtaLabel = "Start 12-Month Plan"
-            }
-        },
+        Plans = plans,
         IsMemberLoggedIn = isMemberLoggedIn,
         ReturnUrl = safeReturn,
         LoginUrl = $"/members/log-in/?r={Uri.EscapeDataString($"/subscriptions?r={encodedReturn}")}",

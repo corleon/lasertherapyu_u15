@@ -31,6 +31,7 @@ builder.Services.AddScoped<IMembershipNotificationService, MembershipNotificatio
 builder.Services.AddScoped<IContentPurchaseService, ContentPurchaseService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IStripePaymentGateway, StripePaymentGateway>();
+builder.Services.AddHostedService<SubscriptionLifecycleHostedService>();
 WebApplication app = builder.Build();
 
 

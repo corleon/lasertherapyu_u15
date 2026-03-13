@@ -16,7 +16,9 @@ public interface IContentPurchaseService
     Task<PurchaseRecordResult> AddPurchaseAsync(Guid memberKey, Guid contentKey, string? paymentIntentId, CancellationToken cancellationToken = default);
     Task<bool> CurrentMemberHasActiveSubscriptionAsync(CancellationToken cancellationToken = default);
     Task<MemberSubscriptionStatusModel?> GetCurrentMemberSubscriptionStatusAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<MemberSubscriptionHistoryItem>> GetCurrentMemberSubscriptionHistoryAsync(CancellationToken cancellationToken = default);
     Task<bool> ActivateSubscriptionAsync(Guid memberKey, SubscriptionActivationRequest request, CancellationToken cancellationToken = default);
+    Task<SubscriptionLifecycleRunResult> RunSubscriptionLifecycleAsync(CancellationToken cancellationToken = default);
     Task TrackCurrentMemberRecentlyViewedAsync(Guid contentKey, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<RecentlyViewedContentItem>> GetCurrentMemberRecentlyViewedContentAsync(CancellationToken cancellationToken = default);
 }
@@ -48,6 +50,7 @@ public sealed class SubscriptionActivationRequest
     public required string PlanCode { get; init; }
     public required string PlanName { get; init; }
     public required int DurationMonths { get; init; }
+    public int? DurationMinutes { get; init; }
     public required decimal Price { get; init; }
     public string? PaymentIntentId { get; init; }
 }
@@ -55,8 +58,37 @@ public sealed class SubscriptionActivationRequest
 public sealed class MemberSubscriptionStatusModel
 {
     public required bool IsActive { get; init; }
+    public required bool IsExpiringSoon { get; init; }
     public string? PlanCode { get; init; }
     public string? PlanName { get; init; }
     public DateTime? ExpiresAtUtc { get; init; }
+    public int? DaysRemaining { get; init; }
+    public string? RemainingLabel { get; init; }
     public string? LastPaymentIntentId { get; init; }
+}
+
+public sealed class MemberSubscriptionHistoryItem
+{
+    public required string PlanCode { get; init; }
+    public required string PlanName { get; init; }
+    public required int DurationMonths { get; init; }
+    public int? DurationMinutes { get; init; }
+    public required decimal Price { get; init; }
+    public DateTime ActivatedAtUtc { get; init; }
+    public DateTime ExpiresAtUtc { get; init; }
+    public string? PaymentIntentId { get; init; }
+    public required bool IsActive { get; init; }
+    public required bool IsCurrent { get; init; }
+
+    public string DurationLabel =>
+        DurationMinutes.HasValue && DurationMinutes.Value > 0
+            ? $"{DurationMinutes.Value} minute(s)"
+            : $"{DurationMonths} month(s)";
+}
+
+public sealed class SubscriptionLifecycleRunResult
+{
+    public int ProcessedMembers { get; set; }
+    public int ExpiredMarked { get; set; }
+    public int WarningEmailsSent { get; set; }
 }

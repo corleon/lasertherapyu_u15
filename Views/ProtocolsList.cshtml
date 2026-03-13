@@ -75,12 +75,12 @@
 
                 var priceDisplay = GetPrice(p);
                 var isPaid = PurchaseService.IsPaidContent(p);
-                var isPurchased = isPaid && (hasActiveSubscription || purchasedKeys.Contains(p.Key));
-                var primaryActionClass = isPurchased
+                var isPurchased = isPaid && purchasedKeys.Contains(p.Key);
+                var isSubscribed = isPaid && !isPurchased && hasActiveSubscription;
+                var hasAccess = isPurchased || isSubscribed;
+                var primaryActionClass = hasAccess
                     ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide"
-                    : isPaid
-                        ? "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide"
-                        : "ltu-flow-btn ltu-flow-btn--ghost ltu-flow-btn--wide";
+                    : "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide";
 
                 <div class="listing-item protocol-item" data-tags="@tagKeys" data-protocol-key="@p.Key">
                     <h2 class="listing-item-h2">
@@ -88,6 +88,10 @@
                         @if (isPurchased)
                         {
                             <span class="purchase-badge ltu-listing-badge">Purchased</span>
+                        }
+                        else if (isSubscribed)
+                        {
+                            <span class="purchase-badge ltu-listing-badge ltu-listing-badge--subscribed">Subscribed</span>
                         }
                     </h2>
 
@@ -105,9 +109,9 @@
 
                     <ul class="listing-item-btns ltu-listing-actions">
                         <li class="listing-item-btn">
-                            <a class="@primaryActionClass" href="@(isPaid && !isPurchased ? $"/billing/checkout?contentKey={p.Key}&returnUrl={Uri.EscapeDataString(p.Url() ?? "/protocols")}" : p.Url())">@(isPurchased ? "Open" : (isPaid ? "Buy Now" : "View Protocol"))</a>
+                            <a class="@primaryActionClass" href="@(isPaid && !hasAccess ? $"/billing/checkout?contentKey={p.Key}&returnUrl={Uri.EscapeDataString(p.Url() ?? "/protocols")}" : p.Url())">@(hasAccess ? "Open" : (isPaid ? "Buy Now" : "View Protocol"))</a>
                         </li>
-                        @if (isPaid && !isPurchased)
+                        @if (isPaid && !hasAccess)
                         {
                             <li class="listing-item-btn">
                                 <form method="post" action="/cart/add">
@@ -260,5 +264,10 @@
         line-height: 1;
         text-transform: uppercase;
         vertical-align: middle;
+    }
+
+    .ltu-listing-badge--subscribed {
+        background: rgba(12, 92, 151, 0.12);
+        color: #0c5c97;
     }
 </style>

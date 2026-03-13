@@ -18,6 +18,17 @@
                     <text> | valid until @Model.SubscriptionStatus.ExpiresAtUtc.Value.ToLocalTime().ToString("M/d/yyyy")</text>
                 }
             </p>
+            @if (Model.SubscriptionStatus.IsExpiringSoon)
+            {
+                var remaining = !string.IsNullOrWhiteSpace(Model.SubscriptionStatus.RemainingLabel)
+                    ? Model.SubscriptionStatus.RemainingLabel
+                    : (Model.SubscriptionStatus.DaysRemaining.HasValue
+                        ? $"{Model.SubscriptionStatus.DaysRemaining.Value} day(s)"
+                        : "soon");
+                <p class="ltu-flow-copy" style="color:#b42318;font-weight:700;">
+                    Your subscription expires in @remaining. Renew now to keep uninterrupted access.
+                </p>
+            }
             <div class="ltu-flow-actions">
                 <a class="ltu-flow-btn ltu-flow-btn--primary" href="/members/my-profile/">Open My Profile</a>
             </div>
@@ -38,7 +49,7 @@
             @foreach (var plan in Model.Plans)
             {
                 <article class="ltu-flow-card ltu-subscription-plan">
-                    <p class="ltu-subscription-plan__months">@plan.DurationMonths <span>months</span></p>
+                    <p class="ltu-subscription-plan__months">@plan.DurationLabel</p>
                     <h3 class="ltu-subscription-plan__title">@plan.PlanName</h3>
                     <p class="ltu-subscription-plan__price">$@plan.Price.ToString("0.00")</p>
                     <p class="ltu-subscription-plan__copy">@plan.Description</p>

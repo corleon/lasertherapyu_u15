@@ -12,6 +12,7 @@ public sealed class SubscriptionsController : Controller
 {
     private static readonly Guid ThreeMonthPlanKey = new("10000000-0000-0000-0000-000000000003");
     private static readonly Guid TwelveMonthPlanKey = new("10000000-0000-0000-0000-000000000012");
+    private static readonly Guid TenMinuteTestPlanKey = new("10000000-0000-0000-0000-000000000010");
 
     private readonly IContentPurchaseService _purchaseService;
     private readonly IStripePaymentGateway _stripeGateway;
@@ -71,12 +72,13 @@ public sealed class SubscriptionsController : Controller
                 SubscriptionPlanCode = plan.PlanCode,
                 SubscriptionPlanName = plan.PlanName,
                 SubscriptionDurationMonths = plan.DurationMonths,
+                SubscriptionDurationMinutes = plan.DurationMinutes,
                 SubscriptionPrice = plan.Price,
                 Items = new[]
                 {
                     new StripeCheckoutLineItem
                     {
-                        ContentKey = plan.DurationMonths == 12 ? TwelveMonthPlanKey : ThreeMonthPlanKey,
+                        ContentKey = ResolvePlanContentKey(plan.PlanCode, plan.DurationMonths, plan.DurationMinutes),
                         ProductName = plan.PlanName,
                         Price = plan.Price
                     }
@@ -106,7 +108,7 @@ public sealed class SubscriptionsController : Controller
     private async Task<IReadOnlyList<SubscriptionPlanViewModel>> BuildPlansAsync()
     {
         var settings = (await _siteSettingsService.GetAsync()).Stripe;
-        return new[]
+        var plans = new List<SubscriptionPlanViewModel>
         {
             new SubscriptionPlanViewModel
             {
@@ -127,6 +129,33 @@ public sealed class SubscriptionsController : Controller
                 CtaLabel = "Start 12-Month Plan"
             }
         };
+
+        if (settings.EnableTenMinuteTestSubscription && settings.TenMinuteTestSubscriptionDurationMinutes > 0)
+        {
+            plans.Add(new SubscriptionPlanViewModel
+            {
+                PlanCode = "med-10m-test",
+                PlanName = "Ten Minute Test Subscription",
+                DurationMonths = 0,
+                DurationMinutes = settings.TenMinuteTestSubscriptionDurationMinutes,
+                Price = settings.TenMinuteTestSubscriptionPrice,
+                Description = "Temporary QA plan for local/staging verification of expiration and access rollback behavior.",
+                CtaLabel = $"Start {settings.TenMinuteTestSubscriptionDurationMinutes}-Minute Test"
+            });
+        }
+
+        return plans;
+    }
+
+    private static Guid ResolvePlanContentKey(string planCode, int durationMonths, int? durationMinutes)
+    {
+        if (string.Equals(planCode, "med-10m-test", StringComparison.OrdinalIgnoreCase) ||
+            (durationMinutes.HasValue && durationMinutes.Value > 0))
+        {
+            return TenMinuteTestPlanKey;
+        }
+
+        return durationMonths == 12 ? TwelveMonthPlanKey : ThreeMonthPlanKey;
     }
 
     private string NormalizeReturnUrl(string? returnUrl, string fallback)

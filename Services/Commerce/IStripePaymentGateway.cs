@@ -11,6 +11,7 @@ public sealed class StripeCheckoutRequest
     public string? SubscriptionPlanCode { get; init; }
     public string? SubscriptionPlanName { get; init; }
     public int? SubscriptionDurationMonths { get; init; }
+    public int? SubscriptionDurationMinutes { get; init; }
     public decimal? SubscriptionPrice { get; init; }
     public string? CustomerEmail { get; init; }
     public string? CustomerFirstName { get; init; }
@@ -39,6 +40,7 @@ public sealed class StripeCheckoutCompletedEvent
     public string? SubscriptionPlanCode { get; init; }
     public string? SubscriptionPlanName { get; init; }
     public int? SubscriptionDurationMonths { get; init; }
+    public int? SubscriptionDurationMinutes { get; init; }
     public decimal? SubscriptionPrice { get; init; }
     public required string PaymentStatus { get; init; }
     public string? PaymentIntentId { get; init; }

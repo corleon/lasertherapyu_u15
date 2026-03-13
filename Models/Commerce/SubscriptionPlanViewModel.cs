@@ -6,7 +6,12 @@ public sealed class SubscriptionPlanViewModel
     public required string PlanName { get; init; }
     public required string Description { get; init; }
     public required int DurationMonths { get; init; }
+    public int? DurationMinutes { get; init; }
     public required decimal Price { get; init; }
     public string CtaLabel { get; init; } = "Start Plan";
-}
 
+    public string DurationLabel =>
+        DurationMinutes.HasValue && DurationMinutes.Value > 0
+            ? $"{DurationMinutes.Value} minute(s)"
+            : $"{DurationMonths} month(s)";
+}
