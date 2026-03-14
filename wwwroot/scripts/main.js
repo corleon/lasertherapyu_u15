@@ -707,21 +707,51 @@ function HeaderNav(headerWrap) {
     // Rebind with namespace to avoid duplicated handlers after partial re-renders.
     $header.off('.ltuHeaderNav');
 
-    $header.on('click.ltuHeaderNav', '.header-nav-expand', function (e) {
-        var $this = $(this);
-        $this
-            .toggleClass('header-nav-expanded')
-            .closest('li')
+    function toggleParentSubNav($parent) {
+        if (!$parent || $parent.length === 0) {
+            return;
+        }
+
+        $parent
+            .children('.header-nav-expand')
+            .first()
+            .toggleClass('header-nav-expanded');
+
+        $parent
             .toggleClass('header-hav-parent-expanded')
-            .find('ul')
+            .children('ul')
             .stop(true, true)
             .slideToggle(200);
+    }
+
+    $header.on('click.ltuHeaderNav', '.header-nav-expand', function (e) {
+        toggleParentSubNav($(this).closest('.header-nav-parent'));
         e.preventDefault();
     });
 
+    $header.on('click.ltuHeaderNav', '.header-nav-parent > a, .header-nav-parent > .header-quick-links', function (e) {
+        var $trigger = $(this);
+        var $parent = $trigger.closest('.header-nav-parent');
+        var href = ($trigger.attr('href') || '').trim();
+        var shouldToggleOnly = $trigger.is('.header-quick-links') || href === '' || href === '#' || href.toLowerCase() === 'javascript:void(0)';
+
+        if (shouldToggleOnly) {
+            toggleParentSubNav($parent);
+            e.preventDefault();
+        }
+    });
+
     $header.on('click.ltuHeaderNav', '.header-nav-toggle', function (e) {
-        $header.find('.header-nav').first().stop(true, true).slideToggle(300);
-        $header.toggleClass('header-nav-opened');
+        var $nav = $header.find('.header-nav').first();
+        var isOpened = $header.hasClass('header-nav-opened');
+
+        if (isOpened) {
+            $nav.stop(true, true).slideUp(300);
+        } else {
+            $nav.stop(true, true).slideDown(300);
+        }
+
+        $header.toggleClass('header-nav-opened', !isOpened);
         e.preventDefault();
     });
 

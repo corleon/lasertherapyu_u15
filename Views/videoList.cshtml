@@ -76,7 +76,9 @@
                 var price = PurchaseService.GetPrice(v);
                 var primaryActionClass = hasAccess
                     ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide"
-                    : "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide";
+                    : (isPaid
+                        ? "ltu-flow-btn ltu-flow-btn--buy ltu-flow-btn--wide"
+                        : "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide");
 
                 var tagKeys = tagNodes != null && tagNodes.Any()
                     ? string.Join(",", tagNodes.Where(t => t != null).Select(t => t.Key.ToString()))
@@ -185,11 +187,11 @@
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="contentKey" value="@v.Key" />
                                     <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                    <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Add to Cart</button>
+                                    <button type="submit" class="ltu-flow-btn ltu-flow-btn--cart ltu-flow-btn--wide">Add to Cart</button>
                                 </form>
                             </li>
                             <li class="listing-item-btn">
-                                <a class="ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide" href="/subscriptions?r=@Uri.EscapeDataString(v.Url() ?? "/videos")">Subscribe</a>
+                                <a class="ltu-flow-btn ltu-flow-btn--subscribe ltu-flow-btn--wide" href="/subscriptions?r=@Uri.EscapeDataString(v.Url() ?? "/videos")">Subscribe</a>
                             </li>
                         }
                     </ul>

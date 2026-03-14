@@ -31,6 +31,15 @@ dotnet run --project .\LTU_U15.csproj
 6. Log out and log in again
 7. Confirm header switches to username when logged in
 
+### Mobile header
+1. Open any page with mobile viewport (`<=650px`)
+2. Tap burger icon in header and confirm menu opens/closes
+3. Inside burger menu, tap a parent item with submenu (for example `Webinars`) and confirm submenu expands from both:
+   - the arrow
+   - the parent label
+4. Log in as a member and confirm the top-right account label does not overlap icon/text
+5. Confirm long username/email is truncated with ellipsis instead of breaking layout
+
 ### Forgot flows
 1. Submit forgot username
 2. Submit forgot password
@@ -46,6 +55,10 @@ dotnet run --project .\LTU_U15.csproj
 6. Complete purchase
 7. Confirm paid item opens afterward
 8. Activate a subscription and confirm any paid item opens without per-item purchase
+9. On listing cards for paid items, confirm CTA roles are visually distinct:
+   - `Buy Now` (buy style)
+   - `Add to Cart` (cart style)
+   - `Subscribe` (subscribe style)
 
 ### Cart
 1. Add multiple paid items from listings
@@ -65,12 +78,31 @@ dotnet run --project .\LTU_U15.csproj
 5. Confirm redirect to `/subscriptions/success`
 6. Confirm profile shows active subscription and expiry
 
+### Short subscription expiry (dev test plan)
+1. Ensure `Stripe:EnableTenMinuteTestSubscription=true` in `appsettings.Development.json`
+2. Open `/subscriptions` and confirm `Ten Minute Test Subscription` appears
+3. Complete checkout for `med-10m-test`
+4. Confirm profile shows active subscription with short remaining time label (minutes/hours)
+5. Wait until expiry and refresh `/members/my-profile/`
+6. Confirm status switches to no active subscription and history item shows expired
+
 ### Profile
 1. Open `/members/my-profile/`
 2. Confirm purchased products render
 3. Confirm recently viewed renders
 4. Confirm each section is capped and has `Show more`
 5. Confirm `Open` buttons work
+6. Confirm `Subscription History` is collapsed by default
+7. Click `Show subscription history` and confirm panel expands/collapses correctly
+
+### Search
+1. Open `/search?q=laser`
+2. Confirm results are grouped by category sections (`Webinars`, `Protocols`, `Videos`, `Research`, `Pages`) when applicable
+3. Confirm category chips/counts are visible for multi-category result sets
+4. Confirm result cards still link to correct content URLs
+5. Confirm ignored doctypes (`category`, `categoryList`, `error`, `search`, `xMLSitemap`) are not rendered
+6. Confirm query keyword is highlighted in result titles/excerpts
+7. Confirm each product-type group renders as a separate panel/card section
 
 ### Emails
 1. Register a new user
@@ -92,6 +124,7 @@ Important:
 - webhook only processes `payment_intent.succeeded`
 - other events are intentionally ignored
 - webhook signature validation is intentionally disabled in this project
+- `stripe trigger payment_intent.succeeded` is useful for connectivity checks, but may return `400` in this project because business metadata is missing for entitlement activation logic
 
 ## uSync import (local)
 

@@ -1,86 +1,610 @@
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 
+@using System.Text.Encodings.Web
+@using System.Text.RegularExpressions
 @using Clean.Core.Models.ViewModels
-@using Umbraco.Cms.Core
 @using Umbraco.Cms.Core.Models.PublishedContent
 @inject Umbraco.Cms.Core.IPublishedContentQuery publishedContentQuery
 
 @{
     Layout = "master.cshtml";
-    var searchQuery = Context.Request.Query["q"];
-    var docTypesToIgnore = new[] { "category", "categoryList", "error", "search", "xMLSitemap" };
+    var searchQuery = (Context?.Request?.Query["q"].ToString() ?? string.Empty).Trim();
+    var docTypesToIgnore = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "category",
+        "categoryList",
+        "error",
+        "search",
+        "xMLSitemap"
+    };
 
     var title = Model.Value<string>("title");
     var subtitle = Model.Value<string>("subtitle");
     var mainImage = Model.Value<IPublishedContent>("mainImage");
+
+    var placeholderText = Umbraco.GetDictionaryValue("Search.Placeholder");
+    if (string.IsNullOrWhiteSpace(placeholderText))
+    {
+        placeholderText = "Search content";
+    }
+
+    var submitText = Umbraco.GetDictionaryValue("Search.SearchButton");
+    if (string.IsNullOrWhiteSpace(submitText))
+    {
+        submitText = "Search";
+    }
+
+    var highlightTerms = Regex.Matches(searchQuery, @"[\p{L}\p{N}]+")
+        .Select(m => m.Value.Trim())
+        .Where(v => v.Length >= 2)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderByDescending(v => v.Length)
+        .ToList();
+
+    string ResolveCategory(string alias) => alias switch
+    {
+        "webinar" or "veterinaryWebinar" => "Webinars",
+        "protocol" => "Protocols",
+        "video" => "Videos",
+        "research" => "Research",
+        _ => "Pages"
+    };
+
+    int ResolveCategoryOrder(string category) => category switch
+    {
+        "Webinars" => 1,
+        "Protocols" => 2,
+        "Videos" => 3,
+        "Research" => 4,
+        _ => 5
+    };
+
+    string ResolveCategoryModifier(string category) => category switch
+    {
+        "Webinars" => "webinars",
+        "Protocols" => "protocols",
+        "Videos" => "videos",
+        "Research" => "research",
+        _ => "pages"
+    };
+
+    string ResolveTitle(IPublishedContent content)
+    {
+        return (content.Value<string>("title")
+                ?? content.Value<string>("headline")
+                ?? content.Value<string>("articleTitle")
+                ?? content.Name)
+            .Trim();
+    }
+
+    string? ResolveSubtitle(IPublishedContent content)
+    {
+        var subtitleValue = content.Value<string>("subtitle");
+        if (!string.IsNullOrWhiteSpace(subtitleValue))
+        {
+            return subtitleValue.Trim();
+        }
+
+        return null;
+    }
+
+    string StripHtml(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return string.Empty;
+        }
+
+        var withoutTags = Regex.Replace(html, "<.*?>", " ", RegexOptions.Singleline);
+        return Regex.Replace(withoutTags, @"\s+", " ").Trim();
+    }
+
+    string? ResolveExcerpt(IPublishedContent content)
+    {
+        var candidateAliases = new[]
+        {
+            "shortDescription",
+            "description",
+            "articleCopy",
+            "bodyText",
+            "content",
+            "metaDescription",
+            "summary"
+        };
+
+        foreach (var alias in candidateAliases)
+        {
+            if (!content.HasProperty(alias) || !content.HasValue(alias))
+            {
+                continue;
+            }
+
+            var value = content.Value<string>(alias);
+            var cleaned = StripHtml(value);
+            if (string.IsNullOrWhiteSpace(cleaned))
+            {
+                continue;
+            }
+
+            return cleaned.Length > 230
+                ? cleaned.Substring(0, 230).TrimEnd() + "..."
+                : cleaned;
+        }
+
+        var fallbackSubtitle = ResolveSubtitle(content);
+        if (!string.IsNullOrWhiteSpace(fallbackSubtitle))
+        {
+            return fallbackSubtitle;
+        }
+
+        return null;
+    }
+
+    string HighlightHtml(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        var encoded = HtmlEncoder.Default.Encode(text.Trim());
+        if (highlightTerms.Count == 0)
+        {
+            return encoded;
+        }
+
+        foreach (var term in highlightTerms)
+        {
+            encoded = Regex.Replace(
+                encoded,
+                Regex.Escape(term),
+                m => $"<mark class=\"ltu-search-hit\">{m.Value}</mark>",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        }
+
+        return encoded;
+    }
+
+    bool IsSearchable(IPublishedContent? content)
+    {
+        if (content == null || !content.IsPublished())
+        {
+            return false;
+        }
+
+        return !docTypesToIgnore.Contains(content.ContentType.Alias);
+    }
+
+    var matchedContent = new List<IPublishedContent>();
+
+    if (!string.IsNullOrWhiteSpace(searchQuery))
+    {
+        matchedContent = publishedContentQuery
+            .Search(searchQuery)
+            .Select(x => x.Content)
+            .Where(x => IsSearchable(x))
+            .GroupBy(x => x!.Key)
+            .Select(g => g.First()!)
+            .ToList();
+    }
+
+    var resultCount = matchedContent.Count;
+    var groupedResults = matchedContent
+        .Select(content => new
+        {
+            Content = content,
+            Category = ResolveCategory(content.ContentType.Alias),
+            CategoryOrder = ResolveCategoryOrder(ResolveCategory(content.ContentType.Alias)),
+            Title = ResolveTitle(content),
+            Subtitle = ResolveSubtitle(content),
+            Excerpt = ResolveExcerpt(content),
+            Author = content.HasProperty("author") && content.HasValue("author")
+                ? content.Value<IPublishedContent>("author")
+                : null,
+            ArticleDate = content.HasProperty("articleDate") && content.HasValue("articleDate")
+                ? content.Value<DateTime?>("articleDate")
+                : null
+        })
+        .OrderBy(x => x.CategoryOrder)
+        .ThenBy(x => x.Title)
+        .GroupBy(x => x.Category)
+        .ToList();
 }
 
 @await Html.PartialAsync("~/Views/Partials/pageHeader.cshtml", new PageHeaderViewModel(Model.Name, title, subtitle, mainImage))
 
-<div class="container">
-    <form action="@Model.Url()" method="GET" id="search">
-        <div class="row">
-            <div class="col-lg-8 col-md-10 mx-auto">
-                <div class="form-group controls">
-                    <input type="text" class="form-control col-xs-6" placeholder="@Umbraco.GetDictionaryValue("Search.Placeholder")" name="q" value="@searchQuery" />
-                </div>
-            </div>
-            <div class="col-lg-8 col-md-10 mx-auto my-3">
-                <div class="form-group">
-                    <button class="btn btn-primary search-button float-end">@Umbraco.GetDictionaryValue("Search.SearchButton") <i class="fa fa-search"></i></button>
-                </div>
-            </div>
-            <div class="col-lg-8 col-md-10 mx-auto">
-                @if (!string.IsNullOrWhiteSpace(searchQuery))
-                {
-                    var results = publishedContentQuery.Search(searchQuery).Where(x => !docTypesToIgnore.Contains(x.Content.ContentType.Alias));
-                    long resultCount = results != null && results.Any() ? results.Count() : 0;
-                    @Html.Raw(string.Format(Umbraco.GetDictionaryValue("Search.Results"), resultCount, searchQuery))
-                    if (resultCount > 0)
-                    {
-                        foreach (var result in results)
-                        {
-                            var resultContent = result.Content;
-                            var author = resultContent.HasProperty("author") && resultContent.HasValue("author")
-                                ? resultContent.Value<IPublishedContent>("author")
-                                : null;
-                            var articleDate = resultContent.HasProperty("articleDate") && resultContent.HasValue("articleDate")
-                                ? resultContent.Value<DateTime?>("articleDate")
-                                : null;
-
-                            <div class="post-preview">
-                                <a href="@resultContent.Url()">
-                                    <h2 class="post-title">
-                                        @(resultContent.HasProperty("title") && resultContent.HasValue("title") && !string.IsNullOrWhiteSpace(resultContent.Value<string>("title")) ? resultContent.Value("title") : resultContent.Name)
-                                    </h2>
-                                    @if (resultContent.HasProperty("subtitle") && resultContent.HasValue("subtitle") && !string.IsNullOrWhiteSpace(resultContent.Value<string>("subtitle")))
-                                    {
-                                        <h3 class="post-subtitle">@(resultContent.Value<string>("subtitle"))</h3>
-                                    }
-                                </a>
-                                @if (author != null || (articleDate != null && articleDate > DateTime.MinValue))
-                                {
-                                    <p class="post-meta">
-                                        @Umbraco.GetDictionaryValue("Article.Posted")
-                                        @if (author != null)
-                                        {
-                                            @Umbraco.GetDictionaryValue("Article.By")@Html.Raw("&nbsp;")@author.Name
-                                        }
-
-                                        @if (articleDate != null && articleDate > DateTime.MinValue)
-                                        {
-                                            @Umbraco.GetDictionaryValue("Article.On")
-
-                                            @:&nbsp;@(articleDate.Value.ToString("MMMM dd, yyyy"))
-                                        }
-                                    </p>
-                                }
-                            </div>
-                        }
-                        <hr>
-                    }
-                }
-            </div>
+<div class="container ltu-search-page">
+    <section class="ltu-search-shell">
+        <div class="ltu-search-hero">
+            <p class="ltu-search-hero__kicker">Knowledge Base Search</p>
+            <h2 class="ltu-search-hero__title">Find webinars, protocols, videos, and research in one place</h2>
+            <p class="ltu-search-hero__copy">Use natural keywords like conditions, body parts, device types, or author names. Results are grouped by product type for faster scanning.</p>
         </div>
-    </form>
+
+        <div class="ltu-search-workspace">
+            <form action="@Model.Url()" method="GET" id="search" class="ltu-search-form">
+                <label class="ltu-search-form__label" for="ltu-search-query">Search library</label>
+                <div class="ltu-search-form__row">
+                    <input
+                        id="ltu-search-query"
+                        type="text"
+                        class="ltu-search-form__input"
+                        placeholder="@placeholderText"
+                        name="q"
+                        value="@searchQuery"
+                        maxlength="2000" />
+                    <button class="ltu-flow-btn ltu-flow-btn--accent ltu-search-form__submit" type="submit">
+                        @submitText
+                    </button>
+                </div>
+            </form>
+
+            @if (string.IsNullOrWhiteSpace(searchQuery))
+            {
+                <div class="ltu-search-empty">
+                    <p>Enter a keyword to search across your full LTU catalog.</p>
+                </div>
+            }
+            else
+            {
+                <p class="ltu-search-summary">
+                    Found <strong>@resultCount</strong> result@(resultCount == 1 ? "" : "s") for <strong>@searchQuery</strong>
+                </p>
+
+                if (resultCount == 0)
+                {
+                    <div class="ltu-search-empty">
+                        <p>No matches found. Try a broader keyword or check spelling.</p>
+                    </div>
+                }
+                else
+                {
+                    if (groupedResults.Count > 1)
+                    {
+                        <div class="ltu-search-categories">
+                            @foreach (var group in groupedResults)
+                            {
+                                var anchorId = $"cat-{group.Key.ToLowerInvariant().Replace(" ", "-")}";
+                                <a href="#@anchorId" class="ltu-search-category-link">@group.Key (@group.Count())</a>
+                            }
+                        </div>
+                    }
+
+                    <div class="ltu-search-panels">
+                        @foreach (var group in groupedResults)
+                        {
+                            var anchorId = $"cat-{group.Key.ToLowerInvariant().Replace(" ", "-")}";
+                            var categoryModifier = ResolveCategoryModifier(group.Key);
+
+                            <section class="ltu-search-panel ltu-search-panel--@categoryModifier" id="@anchorId">
+                                <header class="ltu-search-panel__header">
+                                    <div>
+                                        <p class="ltu-search-panel__kicker">Product Type</p>
+                                        <h3 class="ltu-search-panel__title">@group.Key</h3>
+                                    </div>
+                                    <span class="ltu-search-panel__count">@group.Count()</span>
+                                </header>
+
+                                <div class="ltu-search-results-grid">
+                                    @foreach (var item in group)
+                                    {
+                                        var url = item.Content.Url();
+                                        if (string.IsNullOrWhiteSpace(url))
+                                        {
+                                            continue;
+                                        }
+
+                                        <article class="ltu-search-result-card">
+                                            <h4 class="ltu-search-result-title">
+                                                <a href="@url">@Html.Raw(HighlightHtml(item.Title))</a>
+                                            </h4>
+
+                                            @if (!string.IsNullOrWhiteSpace(item.Excerpt))
+                                            {
+                                                <p class="ltu-search-result-excerpt">@Html.Raw(HighlightHtml(item.Excerpt))</p>
+                                            }
+
+                                            @if (item.Author != null || (item.ArticleDate != null && item.ArticleDate > DateTime.MinValue))
+                                            {
+                                                <p class="ltu-search-result-meta">
+                                                    @if (item.Author != null)
+                                                    {
+                                                        <span>By @item.Author.Name</span>
+                                                    }
+                                                    @if (item.ArticleDate != null && item.ArticleDate > DateTime.MinValue)
+                                                    {
+                                                        <span>@item.ArticleDate.Value.ToString("MMMM dd, yyyy")</span>
+                                                    }
+                                                </p>
+                                            }
+                                        </article>
+                                    }
+                                </div>
+                            </section>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </section>
 </div>
+
+<style>
+    .ltu-search-page,
+    .ltu-search-page * {
+        box-sizing: border-box;
+    }
+
+    .ltu-search-shell {
+        display: grid;
+        gap: 22px;
+        margin-bottom: 34px;
+    }
+
+    .ltu-search-hero {
+        padding: 24px;
+        border: 1px solid #c7ccd1;
+        background:
+            radial-gradient(circle at top right, rgba(43, 124, 191, 0.18), transparent 35%),
+            linear-gradient(135deg, #545654 0%, #3f413f 58%, #006738 100%);
+        box-shadow: 0 18px 36px rgba(52, 53, 52, 0.16);
+    }
+
+    .ltu-search-hero__kicker {
+        margin: 0 0 10px;
+        color: rgba(255,255,255,.76);
+        font-size: .78em;
+        font-weight: 700;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+    }
+
+    .ltu-search-hero__title {
+        margin: 0;
+        color: #fff;
+        font-family: 'Kameron', serif;
+        font-size: 2em;
+        line-height: 1.1;
+    }
+
+    .ltu-search-hero__copy {
+        margin: 12px 0 0;
+        max-width: 760px;
+        color: rgba(255,255,255,.86);
+        line-height: 1.65;
+    }
+
+    .ltu-search-workspace {
+        padding: 24px;
+        border: 1px solid #d8dee3;
+        background: linear-gradient(180deg, #ffffff 0%, #fbfcfc 100%);
+        box-shadow: 0 14px 30px rgba(57, 67, 76, 0.08);
+    }
+
+    .ltu-search-form__label {
+        display: block;
+        margin: 0 0 10px;
+        color: #44505a;
+        font-size: .9em;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .ltu-search-form__row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+    }
+
+    .ltu-search-form__input {
+        width: 100%;
+        min-height: 46px;
+        padding: 0 14px;
+        border: 1px solid #d6dde3;
+        background: #f8fafb;
+        color: #24333f;
+        font-family: 'Source Sans Pro', sans-serif;
+        font-size: 1.02em;
+        transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
+    }
+
+    .ltu-search-form__input:focus {
+        outline: none;
+        border-color: #7cb4d7;
+        background: #fff;
+        box-shadow: 0 0 0 4px rgba(43, 124, 191, 0.12);
+    }
+
+    .ltu-search-form__submit {
+        min-width: 132px;
+    }
+
+    .ltu-search-summary {
+        margin: 16px 0 14px;
+        color: #4f5f6a;
+        font-size: 1.03em;
+    }
+
+    .ltu-search-categories {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 0 0 16px;
+    }
+
+    .ltu-search-category-link,
+    .ltu-search-category-link:visited {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 0 12px;
+        border-radius: 999px;
+        background: rgba(0, 103, 56, 0.10);
+        color: #006738;
+        font-size: 0.84em;
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .ltu-search-category-link:hover {
+        background: rgba(0, 103, 56, 0.16);
+    }
+
+    .ltu-search-panels {
+        display: grid;
+        gap: 18px;
+    }
+
+    .ltu-search-panel {
+        padding: 18px;
+        border: 1px solid #d8dee3;
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(57, 67, 76, 0.06);
+    }
+
+    .ltu-search-panel--webinars {
+        border-left: 5px solid #c11e2d;
+    }
+
+    .ltu-search-panel--protocols {
+        border-left: 5px solid #0065a1;
+    }
+
+    .ltu-search-panel--videos {
+        border-left: 5px solid #f26522;
+    }
+
+    .ltu-search-panel--research {
+        border-left: 5px solid #35af4a;
+    }
+
+    .ltu-search-panel--pages {
+        border-left: 5px solid #67727d;
+    }
+
+    .ltu-search-panel__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e4e9ed;
+    }
+
+    .ltu-search-panel__kicker {
+        margin: 0 0 4px;
+        color: #7a8790;
+        font-size: .74em;
+        font-weight: 700;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+    }
+
+    .ltu-search-panel__title {
+        margin: 0;
+        color: #25323b;
+        font-family: 'Kameron', serif;
+        font-size: 1.52em;
+        line-height: 1.14;
+    }
+
+    .ltu-search-panel__count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        background: rgba(12, 92, 151, 0.10);
+        color: #0c5c97;
+        font-weight: 700;
+    }
+
+    .ltu-search-results-grid {
+        display: grid;
+        gap: 12px;
+    }
+
+    .ltu-search-result-card {
+        padding: 14px;
+        border: 1px solid #e5ebef;
+        background: linear-gradient(180deg, #ffffff 0%, #f9fbfc 100%);
+    }
+
+    .ltu-search-result-title {
+        margin: 0;
+        color: #1f2d38;
+        font-family: 'Kameron', serif;
+        font-size: 1.26em;
+        line-height: 1.25;
+    }
+
+    .ltu-search-result-title a,
+    .ltu-search-result-title a:visited {
+        color: #1f2d38;
+        text-decoration: none;
+    }
+
+    .ltu-search-result-title a:hover {
+        color: #0c5c97;
+    }
+
+    .ltu-search-result-excerpt {
+        margin: 10px 0 0;
+        color: #5e6a74;
+        line-height: 1.62;
+    }
+
+    .ltu-search-result-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin: 10px 0 0;
+        color: #73808a;
+        font-size: .86em;
+        font-weight: 600;
+    }
+
+    .ltu-search-hit {
+        padding: 0 4px;
+        border-radius: 4px;
+        background: #fff2a8;
+        color: #24333f;
+        font-weight: 700;
+    }
+
+    .ltu-search-empty {
+        margin-top: 14px;
+        padding: 16px 18px;
+        border: 1px dashed #c8d2d9;
+        background: #f7fafb;
+        color: #5a646c;
+        line-height: 1.6;
+    }
+
+    @@media screen and (max-width: 760px) {
+        .ltu-search-hero,
+        .ltu-search-workspace {
+            padding: 18px;
+        }
+
+        .ltu-search-hero__title {
+            font-size: 1.65em;
+        }
+
+        .ltu-search-form__row {
+            grid-template-columns: 1fr;
+        }
+
+        .ltu-search-form__submit {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .ltu-search-panel__header {
+            align-items: flex-start;
+        }
+    }
+</style>

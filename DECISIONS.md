@@ -101,3 +101,67 @@
 - Why:
   - keeps content tree reproducible
   - avoids route drift between environments
+
+### 14. Listing access badges distinguish purchase vs subscription
+- Decision:
+  - paid listings show `Purchased` only for direct purchases
+  - if member has active subscription but no direct purchase, show `Subscribed`
+  - free-item primary CTA uses green corporate style (`ltu-flow-btn--accent`)
+- Why:
+  - avoid misleading entitlement messaging
+  - make subscription-based access explicit
+  - keep CTA look consistent with LTU commerce style
+
+### 15. Search results are categorized on the search page
+- Decision:
+  - search results are grouped by category (`Webinars`, `Protocols`, `Videos`, `Research`, `Pages`)
+  - ignored doctypes remain excluded from search results
+- Why:
+  - improves scanability for mixed-content queries
+  - aligns search UX with LTU content taxonomy
+
+### 16. Dev-only short subscription plan for expiry testing
+- Decision:
+  - optional 10-minute plan (`med-10m-test`) is available only when enabled by config
+  - webhook/payment metadata supports minute-based subscription durations
+  - profile/subscription UI renders human-readable remaining time for short plans
+- Why:
+  - enables fast local/staging validation of subscription expiration behavior
+  - avoids waiting months for lifecycle tests
+
+### 17. Mobile header UX fixes are handled with targeted legacy-safe overrides
+- Decision:
+  - keep legacy header structure and add member-specific classes for logged-in account rendering
+  - enable submenu toggle in burger nav from parent labels (`#` links) in addition to arrow control
+  - apply CSS truncation/spacing overrides for long logged-in usernames/emails on small screens
+- Why:
+  - fixes real mobile usability issues without a full header rewrite
+  - avoids regressions in legacy desktop header layout
+
+### 18. Subscription history in My Profile is user-expanded
+- Decision:
+  - the `Subscription History` panel content is hidden by default
+  - history records are revealed only after explicit click on a toggle button
+  - existing `Show more` behavior inside history remains unchanged
+- Why:
+  - prevents large subscription history from pushing key dashboard blocks too far down
+  - keeps profile scanability high on both desktop and mobile
+
+### 19. Search and listing UX align with membership visual system
+- Decision:
+  - search page is rendered as card panels grouped by product type
+  - search result titles/excerpts highlight matched query terms
+  - listing CTAs use differentiated action roles (`buy`, `cart`, `subscribe`) instead of near-identical color usage
+- Why:
+  - improves discoverability and visual hierarchy in high-density catalog pages
+  - makes commerce actions easier to distinguish at a glance
+
+### 20. Build output warning baseline is enforced at project level
+- Decision:
+  - update core package baseline to `Umbraco.Cms 17.2.2`
+  - set NuGet audit severity threshold to `high` for app and tests
+  - suppress legacy nullable/obsolete warning codes currently outside this task scope
+  - exclude `artifacts/**` from compile/content item inclusion
+- Why:
+  - keep CI/local output readable and focused on actionable issues
+  - avoid duplicated warnings from publish artifacts and legacy migration debt

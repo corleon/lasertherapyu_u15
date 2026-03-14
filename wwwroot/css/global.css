@@ -751,6 +751,53 @@ h6 {}
     .loggedIn .header-account-link.header-account-logout{width:40%; }
 }
 
+@media screen and (max-width:650px) {
+    .site-header-small .header-nav {
+        position: relative;
+        z-index: 110;
+        background: #fff;
+    }
+
+    .site-header-small .header-nav-expand,
+    .site-header-small .header-nav-parent > a,
+    .site-header-small .header-nav-parent > .header-quick-links {
+        cursor: pointer;
+    }
+
+    .member-logged-in .site-header-small .header-account-loginlogout .header-account-login--member {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0 10px 0 34px;
+        text-align: left;
+        text-transform: none;
+        font-size: 0.70em;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        background-position: 8px 10px;
+    }
+}
+
+@media screen and (min-width:651px) {
+    .member-logged-in .header-account-loginlogout .header-account-login--member {
+        text-transform: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .member-logged-in .site-header-narrow .header-account-loginlogout .header-account-login--member {
+        max-width: 320px;
+    }
+}
+
+@media screen and (min-width:851px) {
+    .member-logged-in .site-header-large .header-account-loginlogout .header-account-login--member {
+        max-width: 380px;
+    }
+}
+
 
 
 /*-----------------------------------------

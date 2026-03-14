@@ -84,7 +84,9 @@
                 var price = PurchaseService.GetPrice(r);
                 var primaryActionClass = hasAccess
                     ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide"
-                    : "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide";
+                    : (isPaid
+                        ? "ltu-flow-btn ltu-flow-btn--buy ltu-flow-btn--wide"
+                        : "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide");
 
                 // MultiNodeTreePicker - same as protocols
                 var tagNodes = r.Value<IEnumerable<IPublishedContent>>("tags");
@@ -201,11 +203,11 @@
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="contentKey" value="@r.Key" />
                                     <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                    <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Add to Cart</button>
+                                    <button type="submit" class="ltu-flow-btn ltu-flow-btn--cart ltu-flow-btn--wide">Add to Cart</button>
                                 </form>
                             </li>
                             <li class="listing-item-btn">
-                                <a class="ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide" href="/subscriptions?r=@Uri.EscapeDataString(r.Url() ?? "/research")">Subscribe</a>
+                                <a class="ltu-flow-btn ltu-flow-btn--subscribe ltu-flow-btn--wide" href="/subscriptions?r=@Uri.EscapeDataString(r.Url() ?? "/research")">Subscribe</a>
                             </li>
                         }
                     </ul>

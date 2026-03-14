@@ -9,6 +9,7 @@
     var currentYear = DateTime.UtcNow.Year;
     var currentMember = await MemberManager.GetCurrentMemberAsync();
     var isMemberLoggedIn = currentMember != null;
+    var bodyClass = isMemberLoggedIn ? "member-logged-in" : string.Empty;
     var memberDisplayName = currentMember?.UserName ?? "My Profile";
     var myProfileUrl = "/members/my-profile/";
     var loginUrl = "/members/log-in/";
@@ -105,7 +106,7 @@
         })(window,document,'script','dataLayer','GTM-MDDJSMW');</script>
     <!-- End NT -->
 </head>
-<body>
+<body class="@bodyClass">
     <!-- Google Tag Manager (noscript) -->
     <noscript>
         <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TCB97RG"
@@ -135,11 +136,11 @@
                 <div class="header-top">
                     <ul class="header-account-nav">
                         <li class="header-account-item header-account-newsletter"><a href="/newsletter-signup" title="Newsletter" class="header-account-link">Newsletter</a></li>
-                        <li class="header-account-item header-account-loginlogout">
+                        <li class="header-account-item header-account-loginlogout @(isMemberLoggedIn ? "header-account-loginlogout--member" : null)">
 
                             @if (isMemberLoggedIn)
                             {
-                                <a href="@myProfileUrl" title="@memberDisplayName" class="header-account-link header-account-login">@memberDisplayName</a>
+                                <a href="@myProfileUrl" title="@memberDisplayName" class="header-account-link header-account-login header-account-login--member">@memberDisplayName</a>
                             }
                             else
                             {
@@ -339,10 +340,10 @@
                         </div>
                         <ul class="header-account-nav">
                             <!--<li class="header-account-item header-account-newsletter"><a href="/newsletter-signup" title="Newsletter Sign Up" class="header-account-link">Newsletter Sign Up</a></li>-->
-                            <li class="header-account-item header-account-loginlogout">
+                            <li class="header-account-item header-account-loginlogout @(isMemberLoggedIn ? "header-account-loginlogout--member" : null)">
                                 @if (isMemberLoggedIn)
                                 {
-                                    <a href="@myProfileUrl" title="@memberDisplayName" class="header-account-link header-account-login">@memberDisplayName</a>
+                                    <a href="@myProfileUrl" title="@memberDisplayName" class="header-account-link header-account-login header-account-login--member">@memberDisplayName</a>
                                 }
                                 else
                                 {

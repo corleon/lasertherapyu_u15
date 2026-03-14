@@ -34,6 +34,8 @@
   - SMTP password
   - SMTP from email
   - SMTP SSL flag
+- Appsettings/runtime flags:
+  - keep `Stripe:EnableTenMinuteTestSubscription=false` in production
 - Member type fields from uSync:
   - purchase history fields
   - recent view fields
@@ -51,6 +53,13 @@
 8. Cart clears purchased items after success.
 9. Registration and purchase emails send.
 10. Backoffice member shows purchase history summary.
+11. `/search?q=laser` renders categorized result sections.
+12. Paid listing badges show `Purchased` only for direct purchases and `Subscribed` for subscription-based access.
+13. On mobile viewport, burger menu opens and submenu items expand correctly.
+14. On mobile viewport while logged in, header account label is readable (no icon/text overlap).
+15. `/members/my-profile/` shows subscription history collapsed by default and expands on button click.
+16. `/search?q=laser` renders panelized product-type sections and highlights matched keyword terms.
+17. Paid listing cards render distinct CTA styles for `Buy Now`, `Add to Cart`, and `Subscribe`.
 
 ## Local publish command
 ```powershell

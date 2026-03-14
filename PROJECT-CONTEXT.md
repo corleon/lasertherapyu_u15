@@ -15,6 +15,12 @@
   - login/register/forgot forms
 - The rest of the site still uses legacy look and should be modernized later in a separate effort.
 
+## Header behavior
+- Mobile burger navigation supports expanding submenus by tapping either:
+  - the expand arrow
+  - the parent item label (for `#`/toggle-only parent links)
+- Logged-in account label in the header now uses member-specific classes and truncates long usernames/emails safely on small screens.
+
 ## Routing and rendering
 - Shared shell: `Views/master.cshtml`
 - Generic content template: `Views/content.cshtml`
@@ -32,6 +38,7 @@
 - Registration assigns `Standard`
 - Login auto-fixes missing `Standard` for legacy members
 - Logged-in header shows username instead of `Log In/Register`
+- My Profile subscription history panel is collapsed by default and expands on explicit user action.
 
 ## Commerce
 - Paid content is detected strictly by Umbraco item price values.
@@ -42,14 +49,38 @@
 - Webhook processes only `payment_intent.succeeded`.
 - Stripe description format: `Payment for: {productName}`
 - After successful purchase, member history fields are updated and cart is cleaned.
+- Listing entitlement labels:
+  - show `Purchased` only for direct per-item purchases
+  - show `Subscribed` when access comes from active subscription without direct purchase
 
 ## Subscriptions
 - Public page URL: `/subscriptions` (served by Umbraco node, doctype/template `subscriptionsPage`)
 - Success page URL: `/subscriptions/success` (doctype/template `subscriptionsSuccessPage`)
 - Checkout endpoint: `POST /subscriptions/create-session`
 - Plans: 3 months / 12 months
+- Optional dev-only test plan:
+  - code: `med-10m-test`
+  - duration: 10 minutes (configurable)
+  - enabled via `Stripe:EnableTenMinuteTestSubscription`
 - Active subscription grants access to any paid content
 - Subscription activation runs from Stripe `payment_intent.succeeded`
+
+## Search
+- Search page template: `Views/search.cshtml`
+- Search results are grouped by category:
+  - `Webinars`
+  - `Protocols`
+  - `Videos`
+  - `Research`
+  - `Pages`
+- Search UI uses membership-style card panels by product type and highlights matched keywords in result titles/excerpts.
+- Ignored doctypes: `category`, `categoryList`, `error`, `search`, `xMLSitemap`
+
+## Listing CTAs
+- Paid listing action buttons use role-based visual hierarchy:
+  - `Buy Now` (`ltu-flow-btn--buy`)
+  - `Add to Cart` (`ltu-flow-btn--cart`)
+  - `Subscribe` (`ltu-flow-btn--subscribe`)
 
 ## Email notifications
 - User + admin emails on registration
@@ -78,7 +109,10 @@
   - `Services/Site/SiteSettingsService.cs`
   - `Services/Membership/MembershipEmailService.cs`
   - `Services/Membership/MembershipNotificationService.cs`
+- Search:
+  - `Views/search.cshtml`
 
 ## Build/test constraints
 - Run build and tests sequentially.
 - If build fails on locked `LTU_U15.exe`, stop the running process first.
+- Current baseline is configured for warning-clean build/test output (legacy nullable/obsolete noise suppressed at project level).

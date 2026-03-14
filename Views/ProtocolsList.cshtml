@@ -80,7 +80,9 @@
                 var hasAccess = isPurchased || isSubscribed;
                 var primaryActionClass = hasAccess
                     ? "ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide"
-                    : "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide";
+                    : (isPaid
+                        ? "ltu-flow-btn ltu-flow-btn--buy ltu-flow-btn--wide"
+                        : "ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide");
 
                 <div class="listing-item protocol-item" data-tags="@tagKeys" data-protocol-key="@p.Key">
                     <h2 class="listing-item-h2">
@@ -118,11 +120,11 @@
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="contentKey" value="@p.Key" />
                                     <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                    <button type="submit" class="ltu-flow-btn ltu-flow-btn--primary ltu-flow-btn--wide">Add to Cart</button>
+                                    <button type="submit" class="ltu-flow-btn ltu-flow-btn--cart ltu-flow-btn--wide">Add to Cart</button>
                                 </form>
                             </li>
                             <li class="listing-item-btn">
-                                <a class="ltu-flow-btn ltu-flow-btn--accent ltu-flow-btn--wide" href="/subscriptions?r=@Uri.EscapeDataString(p.Url() ?? "/protocols")">Subscribe</a>
+                                <a class="ltu-flow-btn ltu-flow-btn--subscribe ltu-flow-btn--wide" href="/subscriptions?r=@Uri.EscapeDataString(p.Url() ?? "/protocols")">Subscribe</a>
                             </li>
                         }
                     </ul>
