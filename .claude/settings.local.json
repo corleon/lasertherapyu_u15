@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"d:/Work/Umbraco/Multiradiance/Lasertherapyu/lasertherapyu_u15\" && dotnet clean -v minimal 2>&1 | tail -5)",
+      "Bash(taskkill /F /IM dotnet.exe /T 2>/dev/null; sleep 2; echo \"done\")",
+      "Bash(cd \"d:/Work/Umbraco/Multiradiance/Lasertherapyu/lasertherapyu_u15\" && dotnet clean -v minimal 2>&1 | tail -10)",
+      "Bash(handle.exe \"LTU_U15.Tests.csproj.FileListAbsolute.txt\" 2>/dev/null || powershell -Command \"Get-Process | Where-Object {$_.Modules.FileName -like '*LTU_U15*'}\" 2>/dev/null || echo \"handle tool not available\")",
+      "Bash(powershell -Command \"Get-Process | Where-Object { $_.Name -match 'dotnet|msbuild|vstest|testhost' } | Select-Object Id, Name, CPU\" 2>&1)",
+      "Bash(cd \"d:/Work/Umbraco/Multiradiance/Lasertherapyu/lasertherapyu_u15\" && dotnet build -v minimal 2>&1)",
+      "Bash(powershell.exe -NoProfile -Command \"\n\\\\$root = 'D:\\\\Work\\\\Umbraco\\\\Multiradiance\\\\Lasertherapyu\\\\lasertherapyu_u15\\\\LTU_U15.Tests\\\\bin\\\\Debug\\\\net10.0'\nif \\(Test-Path \\\\$root\\) {\n    Get-ChildItem -Path \\\\$root -Directory | Select-Object -ExpandProperty Name\n} else { Write-Host 'bin/Debug/net10.0 not found' }\n\")",
+      "Bash(ls \"d:/Work/Umbraco/Multiradiance/Lasertherapyu/lasertherapyu_u15/LTU_U15.Tests/bin/Debug/net10.0/\" | grep -E \"^LTU_U15\\\\.Tests$|^bin$|^obj$|^run$|^artifacts$\")",
+      "Bash(cd \"d:/Work/Umbraco/Multiradiance/Lasertherapyu/lasertherapyu_u15\" && dotnet test -v minimal 2>&1)"
+    ]
+  }
+}

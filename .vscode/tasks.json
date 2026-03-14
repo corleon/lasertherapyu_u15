@@ -1,0 +1,15 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "test",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["test", "${workspaceFolder}/LTU_U15.Tests/LTU_U15_Tests.csproj"],
+      "options": {
+        "cwd": "${workspaceFolder}/LTU_U15.Tests"
+      },
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

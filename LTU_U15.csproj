@@ -28,8 +28,12 @@
     <Compile Remove="tmp-test-obj\**\*.cs" />
     <Compile Remove="tmp-test-bin\**\*.cs" />
     <Compile Remove="artifacts\**\*.cs" />
+    <Content Remove="LTU_U15.Tests\**\*" />
+    <None Remove="LTU_U15.Tests\**\*" />
     <Content Remove="artifacts\**\*" />
     <None Remove="artifacts\**\*" />
+    <Content Remove="run\**\*" />
+    <None Remove="run\**\*" />
   </ItemGroup>
 
   <PropertyGroup>
